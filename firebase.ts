@@ -6,16 +6,15 @@ import { getFirestore, type Firestore } from '@firebase/firestore';
 // Firebase configuration is now securely read from environment variables.
 // Ensure these are set in your deployment environment.
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDEh4oZeZsc8elIexA1MHKVr3RED1aqgVg",
+  authDomain: "smart-local-ai-usa.firebaseapp.com",
+  projectId: "smart-local-ai-usa",
+  storageBucket: "smart-local-ai-usa.firebasestorage.app",
+  messagingSenderId: "878199402577",
+  appId: "1:878199402577:web:990be530f0220357210870",
+  measurementId: "G-2CHTVK5C3E"
 };
 
-let app;
 let auth: ReturnType<typeof getAuth> | null = null;
 let db: Firestore | null = null;
 let firebaseError: string | null = null;
@@ -24,7 +23,7 @@ let provider: GoogleAuthProvider | null = null;
 // Check if the necessary Firebase config variables are provided
 if (firebaseConfig.apiKey && firebaseConfig.projectId) {
   try {
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     provider = new GoogleAuthProvider();
@@ -38,7 +37,6 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
   firebaseError = "Firebase configuration is missing from environment variables. Please set them to connect to Firebase.";
   console.warn(firebaseError);
 }
-
 
 const signInWithGoogle = () => {
     if (!auth || !provider) {
