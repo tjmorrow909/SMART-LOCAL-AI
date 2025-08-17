@@ -110,18 +110,10 @@ const formatMarkdownToHtml = (text: string) => {
     return html;
 };
 
-// --- In-Memory Store for Offline Demo Mode ---
-let memoryProfiles: Profile[] = [];
-
-
-// --- Firestore Data Helpers (with Offline Fallback) ---
+// --- Firestore Data Helpers ---
 const getProfiles = async (userId: string): Promise<Profile[]> => {
-  if (!db) {
-    console.warn("Firebase not configured. Using in-memory profiles for demo.");
-    return [...memoryProfiles].sort((a, b) => a.name.localeCompare(b.name));
-  }
   try {
-    const profilesCol = collection(db, 'users', userId, 'profiles');
+    const profilesCol = collection(db!, 'users', userId, 'profiles');
     const querySnapshot = await getDocs(profilesCol);
     const profiles = querySnapshot.docs.map(doc => doc.data() as Profile);
     profiles.sort((a, b) => a.name.localeCompare(b.name));
@@ -133,18 +125,8 @@ const getProfiles = async (userId: string): Promise<Profile[]> => {
 };
 
 const saveProfile = async (userId: string, newProfile: Profile) => {
-  if (!db) {
-    console.warn("Firebase not configured. Saving profile to in-memory store.");
-    const existingIndex = memoryProfiles.findIndex(p => p.name === newProfile.name);
-    if (existingIndex > -1) {
-        memoryProfiles[existingIndex] = newProfile;
-    } else {
-        memoryProfiles.push(newProfile);
-    }
-    return;
-  }
   try {
-    const profileDocRef = doc(db, 'users', userId, 'profiles', newProfile.name);
+    const profileDocRef = doc(db!, 'users', userId, 'profiles', newProfile.name);
     await setDoc(profileDocRef, newProfile, { merge: true });
   } catch (error) {
     console.error("Error saving profile to Firestore", error);
@@ -153,13 +135,8 @@ const saveProfile = async (userId: string, newProfile: Profile) => {
 };
 
 const deleteProfile = async (userId: string, profileName: string) => {
-  if (!db) {
-    console.warn("Firebase not configured. Deleting profile from in-memory store.");
-    memoryProfiles = memoryProfiles.filter(p => p.name !== profileName);
-    return;
-  }
   try {
-    const profileDocRef = doc(db, 'users', userId, 'profiles', profileName);
+    const profileDocRef = doc(db!, 'users', userId, 'profiles', profileName);
     await deleteDoc(profileDocRef);
   } catch (error) {
     console.error("Error deleting profile from Firestore", error);
@@ -194,6 +171,9 @@ const useAuth = () => {
 
 // --- App Shell ---
 const App = () => {
+    if (firebaseError) {
+        return <FirebaseErrorScreen error={firebaseError} />;
+    }
     const { user, loading } = useAuth();
     if (loading) { return <LoadingScreen />; }
     if (!user) { return <LoginView />; }
@@ -228,19 +208,52 @@ const LoadingScreen = () => (
     </div>
 );
 
-const LoginView = () => (
+const FirebaseErrorScreen = ({ error }: { error: string }) => (
     <div className="login-view">
-        <div className="login-box">
+        <div className="login-box" style={{ borderColor: 'var(--danger)', borderWidth: '2px', borderStyle: 'solid' }}>
             <LogoSvg theme="dark" />
-            <h1>Welcome to SMARTLOCAL.AI</h1>
-            <p>Your intelligent assistant for growing local businesses. Sign in to get started.</p>
-            <button onClick={signInWithGoogle} className="btn btn-google">
-                <svg viewBox="0 0 18 18" role="presentation" aria-hidden="true" focusable="false" style={{height: '18px', width: '18px', display: 'block'}}><g fill="none" fillRule="evenodd"><path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8441c-.2086 1.125-.8427 2.0782-1.7964 2.7232v2.2582h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.6219z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2582c-.806.5427-1.8409.8618-3.0477.8618-2.344 0-4.3282-1.5832-5.036-3.7104H.957v2.3318C2.4382 16.1423 5.4818 18 9 18z" fill="#34A853"></path><path d="M3.964 10.71c-.18-.5427-.2822-1.1168-.2822-1.71s.1023-1.1673.2822-1.71V4.9582H.957C.3477 6.1718 0 7.5477 0 9c0 1.4523.3477 2.8282.957 4.0418L3.964 10.71z" fill="#FBBC05"></path><path d="M9 3.5795c1.3218 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.425 0 9 0 5.4818 0 2.4382 1.8577.957 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"></path></g></svg>
-                Sign In with Google
-            </button>
+            <h1>Configuration Error</h1>
+            <p>The application could not start due to a configuration issue.</p>
+            <div className="result-container error" style={{ textAlign: 'left', marginTop: 0, marginBottom: '1.5rem' }}>
+                <p><strong>Error Details:</strong> {error}</p>
+            </div>
+            <p style={{marginTop: '1.5rem', fontSize: '0.9rem', color: '#6c757d'}}>Please contact the administrator or check your environment variables to resolve this issue.</p>
         </div>
     </div>
 );
+
+const LoginView = () => {
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSignIn = async () => {
+        setError(null);
+        try {
+            await signInWithGoogle();
+        } catch (err) {
+            console.error("Sign in failed:", err);
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unknown error occurred during sign-in.");
+            }
+        }
+    };
+
+    return (
+        <div className="login-view">
+            <div className="login-box">
+                <LogoSvg theme="dark" />
+                <h1>Welcome to SMARTLOCAL.AI</h1>
+                <p>Your intelligent assistant for growing local businesses. Sign in to get started.</p>
+                {error && <div className="result-container error" style={{marginBottom: '1rem'}}><p>{error}</p></div>}
+                <button onClick={handleSignIn} className="btn btn-google">
+                    <svg viewBox="0 0 18 18" role="presentation" aria-hidden="true" focusable="false" style={{height: '18px', width: '18px', display: 'block'}}><g fill="none" fillRule="evenodd"><path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8441c-.2086 1.125-.8427 2.0782-1.7964 2.7232v2.2582h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.6219z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2582c-.806.5427-1.8409.8618-3.0477.8618-2.344 0-4.3282-1.5832-5.036-3.7104H.957v2.3318C2.4382 16.1423 5.4818 18 9 18z" fill="#34A853"></path><path d="M3.964 10.71c-.18-.5427-.2822-1.1168-.2822-1.71s.1023-1.1673.2822-1.71V4.9582H.957C.3477 6.1718 0 7.5477 0 9c0 1.4523.3477 2.8282.957 4.0418L3.964 10.71z" fill="#FBBC05"></path><path d="M9 3.5795c1.3218 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.425 0 9 0 5.4818 0 2.4382 1.8577.957 4.9582L3.964 7.29C4.6718 5.1632 6.656 3.5795 9 3.5795z" fill="#EA4335"></path></g></svg>
+                    Sign In with Google
+                </button>
+            </div>
+        </div>
+    );
+};
 
 
 const MainApp = ({ user }: { user: User }) => {
@@ -270,11 +283,6 @@ const MainApp = ({ user }: { user: User }) => {
 
   return (
     <>
-      {firebaseError && (
-          <div className="offline-banner">
-              <strong>Configuration Issue:</strong> Firebase connection failed: {firebaseError}. The app is running in offline demo mode.
-          </div>
-      )}
       <Header currentView={view} setView={setView} clientName={clientInfo?.name} hasClient={!!clientInfo} user={user} signOut={signOut} />
       <main className="app-container">
         {renderView()}
@@ -304,6 +312,15 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
   ];
   const alwaysEnabled: View[] = ['clientSetup', 'services', 'profiles', 'map'];
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      alert(`Sign out failed: ${error}`);
+    }
+  };
+  
   return (
     <header className="app-header">
       <div className="header-branding" onClick={() => setView("clientSetup")} title="Go to Client Setup">
@@ -326,7 +343,7 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
       <div className="header-user-info">
         {user.photoURL && <img src={user.photoURL} alt="User profile picture" />}
         <span className="user-name">{user.displayName}</span>
-        <button onClick={signOut} className="btn-sign-out">Sign Out</button>
+        <button onClick={handleSignOut} className="btn-sign-out">Sign Out</button>
       </div>
     </header>
   );

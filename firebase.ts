@@ -41,12 +41,16 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
 
 
 const signInWithGoogle = () => {
-    if (!auth || !provider) return Promise.reject("Firebase Auth not initialized. Check your Firebase configuration.");
+    if (!auth || !provider) {
+        throw new Error("Firebase Auth not initialized. Check your Firebase configuration.");
+    }
     return signInWithPopup(auth, provider);
 }
 
 const signOut = () => {
-    if (!auth) return Promise.reject("Firebase Auth not initialized. Check your Firebase configuration.");
+    if (!auth) {
+        throw new Error("Firebase Auth not initialized. Check your Firebase configuration.");
+    }
     return firebaseSignOut(auth);
 }
 
