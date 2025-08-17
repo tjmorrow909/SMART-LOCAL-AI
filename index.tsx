@@ -887,24 +887,10 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
     const placesServiceRef = useRef<any | null>(null);
     const markersRef = useRef<any[]>([]);
 
-    const [mapsApiKey, setMapsApiKey] = useState<string | null>(() => process.env.MAPS_API_KEY || localStorage.getItem('mapsApiKey'));
-    const [apiKeyInput, setApiKeyInput] = useState('');
-    const [isApiReady, setIsApiReady] = useState(!!mapsApiKey);
+    const mapsApiKey = useMemo(() => process.env.MAPS_API_KEY, []);
 
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(isApiReady);
-
-    const handleApiKeySubmit = () => {
-        if (apiKeyInput.trim()) {
-            localStorage.setItem('mapsApiKey', apiKeyInput.trim());
-            setMapsApiKey(apiKeyInput.trim());
-            setIsApiReady(true);
-            setLoading(true);
-            setError(null);
-        } else {
-            setError("Please enter a valid API Key.");
-        }
-    };
+    const [loading, setLoading] = useState(true);
 
     const clearMarkers = () => {
         markersRef.current.forEach(marker => {
@@ -982,10 +968,9 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
     }, [handleMarkerClick]);
 
     useEffect(() => {
-        if (!isApiReady || !mapsApiKey) {
-            if (!process.env.MAPS_API_KEY && !localStorage.getItem('mapsApiKey')) {
-                setLoading(false);
-            }
+        if (!mapsApiKey) {
+            setError("Google Maps API key is not configured. The map feature is disabled.");
+            setLoading(false);
             return;
         }
 
@@ -1064,9 +1049,6 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
             console.error("Error loading Google Maps:", e);
             setError("Failed to load Google Maps. The API key might be invalid or missing required permissions.");
             setLoading(false);
-            setIsApiReady(false);
-            localStorage.removeItem('mapsApiKey');
-            setMapsApiKey(null);
         });
         
         return () => {
@@ -1074,25 +1056,14 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
              clearMarkers();
         };
 
-    }, [isApiReady, mapsApiKey, findNearbyPlaces]);
+    }, [mapsApiKey, findNearbyPlaces]);
 
-    if (!isApiReady) {
+    if (!mapsApiKey) {
         return (
             <div className="view-container map-view-wrapper" style={{ padding: 0, background: 'transparent', boxShadow: 'none' }}>
                 <div className="map-api-key-form">
-                    <h3>Google Maps API Key Required</h3>
-                    <p>To use the map feature, please provide your Google Maps API key. The key will be saved in your browser's local storage for future use.</p>
-                    <div className="form-group">
-                        <label htmlFor="maps-api-key">API Key</label>
-                        <input 
-                            id="maps-api-key"
-                            type="password" 
-                            value={apiKeyInput}
-                            onChange={(e) => setApiKeyInput(e.target.value)}
-                            placeholder="AIzaSyDqXi1aMerPl9P7xk1qShET0nsicz_BVXs" 
-                        />
-                    </div>
-                    <button className="btn btn-primary" onClick={handleApiKeySubmit}>Load Map</button>
+                    <h3>Google Maps Not Available</h3>
+                    <p>The map feature cannot be loaded because the Google Maps API key is not configured in the application's environment variables. Please contact an administrator.</p>
                     {error && <div className="result-container error" style={{marginTop: '1rem'}}><p>{error}</p></div>}
                 </div>
             </div>
