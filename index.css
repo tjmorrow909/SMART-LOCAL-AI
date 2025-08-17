@@ -1171,6 +1171,57 @@ h1, h2, h3, h4 {
     width: 100%;
 }
 
+.map-infowindow-content {
+    font-family: 'Poppins', sans-serif;
+    max-width: 280px;
+}
+.map-infowindow-content h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+}
+.map-infowindow-content p {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: #495057;
+    line-height: 1.4;
+}
+.map-infowindow-content a {
+    color: var(--primary-accent);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    display: block;
+    margin-bottom: 12px;
+}
+.map-infowindow-content a:hover {
+    text-decoration: underline;
+}
+.map-infowindow-content .btn {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+}
+
+/* Google Maps InfoWindow Customization */
+.gm-style .gm-style-iw-c {
+    padding: 1rem !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow) !important;
+    border: 1px solid var(--border-color);
+}
+.gm-style .gm-style-iw-d {
+    overflow: auto !important;
+}
+.gm-style .gm-style-iw-t::after {
+    background: white !important;
+    box-shadow: -2px 2px 2px 0 rgba(0, 0, 0, 0.1) !important;
+    border-top: 1px solid var(--border-color) !important;
+    border-right: 1px solid var(--border-color) !important;
+}
+
 
 /* Google Maps Autocomplete Dropdown */
 .pac-container {

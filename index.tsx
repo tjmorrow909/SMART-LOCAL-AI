@@ -886,6 +886,7 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
     const mapInstanceRef = useRef<any | null>(null);
     const placesServiceRef = useRef<any | null>(null);
     const markersRef = useRef<any[]>([]);
+    const infoWindowRef = useRef<any | null>(null);
 
     const mapsApiKey = useMemo(() => process.env.MAPS_API_KEY, []);
 
@@ -899,41 +900,89 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
         markersRef.current = [];
     };
     
-    const handleMarkerClick = useCallback((place: any) => {
-        if (!placesServiceRef.current) return;
+    const handleMarkerClick = useCallback((place: any, marker: any) => {
+        if (!placesServiceRef.current || !mapInstanceRef.current) return;
         setLoading(true);
-
+    
+        if (infoWindowRef.current) {
+            infoWindowRef.current.close();
+        }
+        
+        const escapeHTML = (str: string | undefined) => {
+            if (!str) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+            // @ts-ignore
+            return str.replace(/[&<>"']/g, m => map[m]);
+        }
+    
         const detailsRequest = {
             placeId: place.place_id!,
-            fields: ['name', 'website', 'formatted_address']
+            fields: ['name', 'website', 'formatted_address', 'url']
         };
-
-        placesServiceRef.current.getDetails(detailsRequest, (detailedPlace: any, status: any) => {
+    
+        placesServiceRef.current.getDetails(detailsRequest, async (detailedPlace: any, status: any) => {
             setLoading(false);
+            let client: ClientInfo;
+            let mapsUrl: string | undefined;
+    
             if (status === google.maps.places.PlacesServiceStatus.OK && detailedPlace) {
-                const client: ClientInfo = {
+                client = {
                     name: detailedPlace.name || 'Unknown Business',
                     website: detailedPlace.website || '',
                     description: detailedPlace.formatted_address || ''
                 };
-                setClientInfo(client);
-                setView('audit');
+                mapsUrl = detailedPlace.url;
             } else {
                 console.error('Place details request failed:', status);
-                const client: ClientInfo = {
+                client = {
                     name: place.name || 'Unknown Business',
                     website: '',
                     description: place.vicinity || ''
                 };
-                setClientInfo(client);
-                setView('audit');
             }
+    
+            const { InfoWindow } = await google.maps.importLibrary("maps");
+    
+            const infoWindowContent = document.createElement('div');
+            infoWindowContent.className = 'map-infowindow-content';
+            
+            infoWindowContent.innerHTML = `
+                <h4>${escapeHTML(client.name)}</h4>
+                ${client.description ? `<p>${escapeHTML(client.description)}</p>` : ''}
+                ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" rel="noopener noreferrer">View on Google Maps</a>` : ''}
+            `;
+            
+            const button = document.createElement('button');
+            button.textContent = 'Start Questionnaire';
+            button.className = 'btn btn-primary';
+            button.style.marginTop = '10px';
+            button.style.width = '100%';
+            button.onclick = () => {
+                setClientInfo(client);
+                setView('questionnaire');
+            };
+    
+            infoWindowContent.appendChild(button);
+    
+            const infoWindow = new InfoWindow({
+                content: infoWindowContent,
+            });
+    
+            infoWindowRef.current = infoWindow;
+            infoWindow.open({
+                anchor: marker,
+                map: mapInstanceRef.current,
+            });
         });
     }, [setView, setClientInfo]);
     
     const findNearbyPlaces = useCallback((location: any) => {
         if (!placesServiceRef.current || !mapInstanceRef.current) return;
         setLoading(true);
+
+        if (infoWindowRef.current) {
+            infoWindowRef.current.close();
+        }
 
         const request: any = {
             location: location,
@@ -958,7 +1007,7 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
                             title: place.name,
                             content: pin.element,
                         });
-                        marker.addListener('click', () => handleMarkerClick(place));
+                        marker.addListener('click', () => handleMarkerClick(place, marker));
                         markersRef.current.push(marker);
                     }
                 });
@@ -1054,6 +1103,9 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
         return () => {
              isMounted = false;
              clearMarkers();
+             if (infoWindowRef.current) {
+                infoWindowRef.current.close();
+            }
         };
 
     }, [mapsApiKey, findNearbyPlaces]);
