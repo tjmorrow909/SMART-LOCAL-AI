@@ -1135,13 +1135,19 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
         placesServiceRef.current.nearbySearch(request, async (results: any, status: any) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && results) {
                 clearMarkers();
-                const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+                const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
                 results.forEach((place: any) => {
                     if (place.geometry?.location && place.name) {
+                        const pin = new PinElement({
+                            background: '#EA4335',
+                            borderColor: '#B3261E',
+                            glyphColor: '#FFFFFF',
+                        });
                         const marker = new AdvancedMarkerElement({
                             map: mapInstanceRef.current,
                             position: place.geometry.location,
                             title: place.name,
+                            content: pin.element,
                         });
                         marker.addListener('click', () => handleMarkerClick(place));
                         markersRef.current.push(marker);
