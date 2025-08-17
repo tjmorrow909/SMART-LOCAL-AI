@@ -1089,7 +1089,7 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
                             type="password" 
                             value={apiKeyInput}
                             onChange={(e) => setApiKeyInput(e.target.value)}
-                            placeholder="Enter your Google Maps API Key" 
+                            placeholder="AIzaSyDqXi1aMerPl9P7xk1qShET0nsicz_BVXs" 
                         />
                     </div>
                     <button className="btn btn-primary" onClick={handleApiKeySubmit}>Load Map</button>
