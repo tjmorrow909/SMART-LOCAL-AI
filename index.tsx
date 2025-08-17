@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -7,61 +6,7 @@ import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, type 
 import { Loader } from "@googlemaps/js-api-loader";
 
 
-// --- Speech Recognition API type definitions for TypeScript ---
-interface SpeechRecognitionAlternative {
-    readonly transcript: string;
-    readonly confidence: number;
-}
-interface SpeechRecognitionResult {
-    readonly isFinal: boolean;
-    readonly length: number;
-    item(index: number): SpeechRecognitionAlternative;
-    [index: number]: SpeechRecognitionAlternative;
-}
-interface SpeechRecognitionResultList {
-    readonly length: number;
-    item(index: number): SpeechRecognitionResult;
-    [index: number]: SpeechRecognitionResult;
-}
-interface SpeechRecognitionEvent extends Event {
-    readonly resultIndex: number;
-    readonly results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionErrorEvent extends Event {
-    readonly error: string;
-    readonly message: string;
-}
-interface SpeechRecognitionStatic {
-    new(): SpeechRecognition;
-}
-interface SpeechRecognition extends EventTarget {
-    continuous: boolean;
-    grammars: any;
-    interimResults: boolean;
-    lang: string;
-    maxAlternatives: number;
-    onaudiostart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onaudioend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
-    onnomatch: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-    onsoundstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onsoundend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onspeechstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onspeechend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    abort(): void;
-    start(): void;
-    stop(): void;
-}
 declare var google: any;
-declare global {
-    interface Window {
-        SpeechRecognition: SpeechRecognitionStatic;
-        webkitSpeechRecognition: SpeechRecognitionStatic;
-    }
-}
 
 // --- App Structure and Types ---
 type View = "clientSetup" | "questionnaire" | "services" | "audit" | "tools" | "profiles" | "map";
@@ -353,136 +298,10 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
 // --- View Components ---
 
 const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => void, setClientInfo: (info: ClientInfo) => void }) => {
-    type InputMode = 'type' | 'write' | 'record';
     const [notes, setNotes] = useState('');
-    const [inputMode, setInputMode] = useState<InputMode>('type');
-    const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
     
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const recognitionRef = useRef<SpeechRecognition | null>(null);
-    const isDrawingRef = useRef(false);
-    const lastPosRef = useRef<{x: number, y: number} | null>(null);
-    
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || inputMode !== 'write') return;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        const getPos = (e: MouseEvent | TouchEvent) => {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-            const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
-        };
-        const startDrawing = (e: MouseEvent | TouchEvent) => {
-            e.preventDefault();
-            isDrawingRef.current = true;
-            lastPosRef.current = getPos(e);
-        };
-        const draw = (e: MouseEvent | TouchEvent) => {
-            if (!isDrawingRef.current || !lastPosRef.current) return;
-            e.preventDefault();
-            const currentPos = getPos(e);
-            ctx.beginPath();
-            ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
-            ctx.lineTo(currentPos.x, currentPos.y);
-            ctx.stroke();
-            lastPosRef.current = currentPos;
-        };
-        const stopDrawing = () => {
-            isDrawingRef.current = false;
-            lastPosRef.current = null;
-        };
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-        canvas.addEventListener('touchstart', startDrawing, { passive: false });
-        canvas.addEventListener('touchmove', draw, { passive: false });
-        canvas.addEventListener('touchend', stopDrawing);
-        return () => {
-            canvas.removeEventListener('mousedown', startDrawing);
-            canvas.removeEventListener('mousemove', draw);
-            canvas.removeEventListener('mouseup', stopDrawing);
-            canvas.removeEventListener('mouseout', stopDrawing);
-            canvas.removeEventListener('touchstart', startDrawing);
-            canvas.removeEventListener('touchmove', draw);
-            canvas.removeEventListener('touchend', stopDrawing);
-        };
-    }, [inputMode]);
-    
-    const handleTranscribeScribble = async () => {
-        if (!ai) { setError("AI client not initialized. Check API_KEY."); return; }
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        setIsProcessing(true);
-        setError('');
-        try {
-            const dataUrl = canvas.toDataURL('image/png');
-            const base64Data = dataUrl.split(',')[1];
-            const imagePart = { inlineData: { mimeType: 'image/png', data: base64Data } };
-            const textPart = { text: "Transcribe the handwriting in this image. Only return the transcribed text." };
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: { parts: [imagePart, textPart] },
-            });
-            const transcribedText = response.text;
-            if (transcribedText) {
-                setNotes(prev => prev ? `${prev}\n${transcribedText}` : transcribedText);
-            }
-            const ctx = canvas.getContext('2d');
-            ctx?.clearRect(0, 0, canvas.width, canvas.height);
-        } catch (err) {
-            console.error("Scribble transcription error:", err);
-            setError("Could not transcribe the scribbled notes. Please try again.");
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleToggleRecording = () => {
-        if (isRecording) {
-            recognitionRef.current?.stop();
-            return;
-        }
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            setError("Speech recognition is not supported in this browser.");
-            return;
-        }
-        recognitionRef.current = new SpeechRecognition();
-        const recognition = recognitionRef.current;
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.onstart = () => setIsRecording(true);
-        recognition.onend = () => setIsRecording(false);
-        recognition.onerror = (event) => setError(`Speech recognition error: ${event.error}`);
-        recognition.onresult = (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
-            }
-            if (finalTranscript) {
-                 setNotes(prev => prev.trim() ? `${prev.trim()} ${finalTranscript}` : finalTranscript);
-            }
-        };
-        recognition.start();
-    };
-
     const handleProceed = async () => {
         if (!ai) { setError("AI client not initialized. Check API_KEY."); return; }
         if (!notes.trim()) {
@@ -537,31 +356,35 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
         <div className="view-container client-setup-view">
             <div className="client-setup-header">
                 <h2>Start a New Client Consultation</h2>
-                <p>Use the notepad below to capture details during your conversation. You can type, write with a mouse/stylus, or record your voice. The AI will analyze your notes to set up the client profile.</p>
+                <p>Use the notepad below to capture details during your conversation. The AI will analyze your notes to set up the client profile.</p>
             </div>
+            
             <div className="client-setup-layout">
+                <div className="key-questions-panel">
+                    <h3>Key Questions to Ask</h3>
+                    <ul>{keyQuestions.map(q => <li key={q}>{q}</li>)}</ul>
+                </div>
+                
                 <div className="notepad-container">
-                    <div className="notepad-controls">
-                        <button onClick={() => setInputMode('type')} className={inputMode === 'type' ? 'active' : ''}>Type</button>
-                        <button onClick={() => setInputMode('write')} className={inputMode === 'write' ? 'active' : ''}>Write</button>
-                        <button onClick={handleToggleRecording} className={inputMode === 'record' ? 'active' : ''}>{isRecording ? 'Stop' : 'Record'}</button>
-                        {isRecording && <div className="recording-indicator">Recording...</div>}
-                    </div>
-                    <div className="notepad-area">
-                        <textarea className="notepad-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Start taking notes here..." onFocus={() => setInputMode('type')} />
-                        {inputMode === 'write' && (<canvas ref={canvasRef} className="notepad-canvas-overlay" />)}
-                    </div>
+                    <textarea 
+                        className="notepad-textarea" 
+                        value={notes} 
+                        onChange={(e) => setNotes(e.target.value)} 
+                        placeholder="Start taking notes here..."
+                        rows={15}
+                    />
                     <div className="notepad-actions">
-                        {inputMode === 'write' && (<button className="btn btn-secondary" onClick={handleTranscribeScribble} disabled={isProcessing}>{isProcessing ? 'Transcribing...' : 'Transcribe Scribble'}</button>)}
-                        <button className="btn btn-primary" onClick={handleProceed} disabled={isProcessing || !notes.trim()} style={{marginLeft: 'auto'}}>{isProcessing ? 'Analyzing...' : 'Analyze Notes & Proceed'}</button>
+                        <button 
+                            className="btn btn-primary" 
+                            onClick={handleProceed} 
+                            disabled={isProcessing || !notes.trim()}
+                        >
+                            {isProcessing ? 'Analyzing...' : 'Analyze Notes & Proceed'}
+                        </button>
                     </div>
                     {isProcessing && <div className="loading-spinner" style={{marginTop: '1rem'}}></div>}
                     {error && <div className="result-container error" style={{marginTop: '1rem'}}><p>{error}</p></div>}
                 </div>
-                <aside className="key-questions-panel">
-                    <h3>Key Questions to Ask</h3>
-                    <ul>{keyQuestions.map(q => <li key={q}>{q}</li>)}</ul>
-                </aside>
             </div>
         </div>
     );
