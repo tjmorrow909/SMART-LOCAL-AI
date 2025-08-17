@@ -1,7 +1,7 @@
 
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { initializeApp, getApp, getApps } from '@firebase/app';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from '@firebase/auth';
+import { getFirestore, type Firestore } from '@firebase/firestore';
 
 // Firebase configuration is now securely read from environment variables.
 // Ensure these are set in your deployment environment.

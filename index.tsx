@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { GoogleGenAI, Type } from "@google/genai";
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc } from '@firebase/firestore';
 import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, type User, auth } from './firebase';
 import { Loader } from "@googlemaps/js-api-loader";
 
@@ -200,27 +200,30 @@ const App = () => {
     return <MainApp user={user} />;
 };
 
-const LogoSvg = (
-    <img 
-        src={`data:image/svg+xml;utf8,${encodeURIComponent(`
-        <svg width="270" height="60" viewBox="0 0 270 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .heavy { font: 600 32px 'Poppins', sans-serif; fill: white; }
-            .light { font: 400 32px 'Poppins', sans-serif; fill: white; }
-            .ai-text { font: 600 28px 'Poppins', sans-serif; fill: #1A2B44; }
-          </style>
-          <text x="0" y="42" class="heavy">SMART<tspan class="light">LOCAL</tspan></text>
-          <rect x="205" y="12" width="60" height="36" rx="8" fill="#A6CE39"/>
-          <text x="215" y="39" class="ai-text">.AI</text>
-        </svg>`)}`} 
-        alt="SMARTLOCAL AI Logo" 
-        className="header-logo" 
-    />
-);
+const LogoSvg = ({ theme = 'light' }: { theme?: 'light' | 'dark' }) => {
+    const textColor = theme === 'light' ? 'white' : '#1A2B44';
+    return (
+        <img
+            src={`data:image/svg+xml;utf8,${encodeURIComponent(`
+            <svg width="270" height="60" viewBox="0 0 270 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <style>
+                .heavy { font: 600 32px 'Poppins', sans-serif; fill: ${textColor}; }
+                .light { font: 400 32px 'Poppins', sans-serif; fill: ${textColor}; }
+                .ai-text { font: 600 28px 'Poppins', sans-serif; fill: #1A2B44; }
+              </style>
+              <text x="0" y="42" class="heavy">SMART<tspan class="light">LOCAL</tspan></text>
+              <rect x="205" y="12" width="60" height="36" rx="8" fill="#A6CE39"/>
+              <text x="215" y="39" class="ai-text">.AI</text>
+            </svg>`)}`}
+            alt="SMARTLOCAL AI Logo"
+            className="header-logo"
+        />
+    );
+};
 
 const LoadingScreen = () => (
     <div className="loading-screen">
-        {LogoSvg}
+        <LogoSvg theme="light" />
         <div className="loading-spinner"></div>
     </div>
 );
@@ -228,7 +231,7 @@ const LoadingScreen = () => (
 const LoginView = () => (
     <div className="login-view">
         <div className="login-box">
-            {LogoSvg}
+            <LogoSvg theme="dark" />
             <h1>Welcome to SMARTLOCAL.AI</h1>
             <p>Your intelligent assistant for growing local businesses. Sign in to get started.</p>
             <button onClick={signInWithGoogle} className="btn btn-google">
@@ -304,7 +307,7 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
   return (
     <header className="app-header">
       <div className="header-branding" onClick={() => setView("clientSetup")} title="Go to Client Setup">
-         {LogoSvg}
+         <LogoSvg theme="light" />
       </div>
       <nav className="app-nav">
         {navItems.map((item) => (
