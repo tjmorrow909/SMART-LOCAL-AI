@@ -2,7 +2,7 @@ FROM node:18
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json ./\n
 RUN npm install
 
 COPY . .
@@ -10,4 +10,4 @@ RUN npm run build
 
 EXPOSE 8080
 
-CMD [ "node", "server.cjs" ]
+CMD [ "node", "server.js" ]
