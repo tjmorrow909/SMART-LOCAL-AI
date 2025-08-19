@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
-import { GoogleGenAI, Type } from "@google/genai";
+import { initializeApp } from 'firebase/app';
 import { collection, doc, getDocs, setDoc, deleteDoc } from '@firebase/firestore';
-import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, type User, auth } from './firebase';
+import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth } from './firebase';
 import { Loader } from "@googlemaps/js-api-loader";
 
-
+import type { User } from 'firebase/auth'; // Import User type from Firebase Auth
 declare var google: any;
 
+import { getAI, getGenerativeModel, type GenerativeModel, type User } from 'firebase/ai';
 // --- App Structure and Types ---
 type View = "clientSetup" | "questionnaire" | "services" | "audit" | "tools" | "profiles" | "map";
 interface ClientInfo {
@@ -88,10 +89,13 @@ const deleteProfile = async (userId: string, profileName: string) => {
   }
 };
 
-
 // Initialize the Gemini AI Client
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
-const ai = GOOGLE_AI_API_KEY ? new GoogleGenAI({ apiKey: GOOGLE_AI_API_KEY }) : null;
+let ai: GenerativeModel | null = null;
+if (!firebaseError) {
+    const firebaseApp = initializeApp(auth.app.options); // Use the same config as auth
+    const aiInstance = getAI(firebaseApp);
+    ai = getGenerativeModel(aiInstance, 'gemini-1.5-flash-preview-0514');
+}
 
 // --- Authentication Hook ---
 const useAuth = () => {
@@ -289,7 +293,8 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
         {user.photoURL && <img src={user.photoURL} alt="User profile picture" />}
         <span className="user-name">{user.displayName}</span>
         <button onClick={handleSignOut} className="btn-sign-out">Sign Out</button>
-      </div>
+      </div>import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from './firebase';
+
     </header>
   );
 };
@@ -303,7 +308,7 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
     const [error, setError] = useState('');
     
     const handleProceed = async () => {
-        if (!ai) { setError("AI client not initialized. Check GOOGLE_AI_API_KEY environment variable."); return; }
+        if (!ai) { setError("AI client not initialized."); return; }
         if (!notes.trim()) {
             alert("Please provide some notes before proceeding.");
             return;
@@ -322,17 +327,12 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
         Return the result as a JSON object with the keys "name", "website", and "description". If a piece of information isn't found, return an empty string for that key.`;
         try {
             const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING, description: "The name of the business." },
-                            website: { type: Type.STRING, description: "The website URL of the business." },
-                            description: { type: Type.STRING, description: "A one-paragraph summary of the business." },
-                        },
+                    responseMimeType: "application/json", // Request JSON output
+                     responseSchema: {
+                             name: { type: "STRING" }, website: { type: "STRING" }, description: { type: "STRING" }
+                         },
                         required: ["name", "website", "description"]
                     }
                 }
@@ -476,7 +476,7 @@ const AuditView = ({ clientInfo, questionnaireAnswers, user }: AuditViewProps) =
   const [generatingTools, setGeneratingTools] = useState(false);
 
   const handleGenerateAudit = async () => {
-    if (!ai) { setError("AI client not initialized. Check GOOGLE_AI_API_KEY environment variable."); return; }
+    if (!ai) { setError("AI client not initialized."); return; }
     if (!clientInfo) {
       setError("Client information is missing. Please set it up in the 'Client' tab or find a business on the 'Map' tab.");
       return;
@@ -534,8 +534,8 @@ A single sentence explaining the potential return on investment in simple terms.
 - **Growth Kit ($299):** For integrating a few core Google AI tools.
 - **VIP Automation ($699+):** For a full Google AI business system revamp.`;
     try {
-      const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { tools: [{ googleSearch: {} }] }, });
-      const resultText = response.text;
+      const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], config: { tools: [{ googleSearch: {} }] }, });
+      const resultText = response.text; // Use .text property for string response
       setAuditResult(resultText);
       const packages = ["VIP Automation", "Growth Kit", "Quick Boost"];
       let foundPackage: string | null = null;
@@ -548,23 +548,22 @@ A single sentence explaining the potential return on investment in simple terms.
   };
 
   const handleInitiatePackage = async () => {
-    if (!ai) { setError("AI client not initialized. Check GOOGLE_AI_API_KEY environment variable."); return; }
+    if (!ai) { setError("AI client not initialized."); return; }
     if (!clientInfo || !user) return;
     setGeneratingTools(true);
     setIsInitiated(false);
     setError("");
     const toolPrompt = `For a business named "${clientInfo.name}" with the description "${clientInfo.description || 'N/A'}" that has signed up for our "${selectedPackage}" package, please generate a list of 3 to 5 specific AI tools or services exclusively from the Google ecosystem that would be highly beneficial for them. For each tool, provide its name (e.g., "Google Business Profile," "Google Analytics," "Google Ads AI"), a one-sentence description of how it helps this specific business, and a valid, real-world URL for the tool's website. The output must be a JSON object with a single key "tools", which is an array of objects.`;
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", contents: toolPrompt,
-            config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { tools: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING, description: "Name of the AI tool or service." }, description: { type: Type.STRING, description: "A one-sentence explanation of its benefit to the business." }, url: { type: Type.STRING, description: "The homepage URL of the tool." }, }, required: ["name", "description", "url"] } } }, required: ["tools"] } }
+            const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: [{ role: "user", parts: [{ text: toolPrompt }] }], config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { tools: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING", description: "Name of the AI tool or service." }, description: { type: "STRING", description: "A one-sentence explanation of its benefit to the business." }, url: { type: "STRING", description: "The homepage URL of the tool." } }, required: ["name", "description", "url"] } } }, required: ["tools"] } }
         });
+    
+
         const resultData = JSON.parse(response.text);
         const newProfile: Profile = { ...clientInfo, initiatedPackage: selectedPackage, initiatedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), tools: resultData.tools || [], auditReport: auditResult };
         await saveProfile(user.uid, newProfile);
         setIsInitiated(true);
     } catch (err) {
-        console.error("Error generating tools or saving profile:", err);
         setError("Failed to generate the recommended tools for the profile. The profile was not saved. Please try again.");
     } finally { setGeneratingTools(false); }
   };
@@ -618,15 +617,15 @@ A single sentence explaining the potential return on investment in simple terms.
 interface AiToolGeneratorProps { title: string; promptTemplate: (inputs: Record<string, string>) => string; children?: React.ReactNode; getInputs: () => Record<string, string> | null; useGoogleSearch?: boolean; }
 const AiToolGenerator = ({ title, promptTemplate, children, getInputs, useGoogleSearch = false }: AiToolGeneratorProps) => {
   const [result, setResult] = useState(""); const [sources, setSources] = useState<any[]>([]); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
-  const handleGenerate = async () => {    
+  const handleGenerate = async () => {
     if (!ai) { setError("AI client not initialized. Check API_KEY."); return; }
     const inputs = getInputs(); if (!inputs) { setError("Please fill in all required fields."); return; }
     setLoading(true); setResult(""); setError(""); setSources([]);
     try {
       const prompt = promptTemplate(inputs);
-      const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, ...(useGoogleSearch && { config: { tools: [{googleSearch: {}}] } }) });
+      const response = await ai.model.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], ...(useGoogleSearch && { tools: [{googleSearch: {}}] }) });
       setResult(response.text);
-      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+      const groundingMetadata = response.candidates?.[0]?.citationMetadata; // Use citationMetadata
       if (groundingMetadata?.groundingChunks) { setSources(groundingMetadata.groundingChunks); }
     } catch (err) { console.error(err); setError("Failed to generate content. Please try again."); } finally { setLoading(false); }
   };
@@ -653,16 +652,16 @@ const AiToolGenerator = ({ title, promptTemplate, children, getInputs, useGoogle
 const SocialPostCreator = ({ clientInfo }: { clientInfo: ClientInfo | null }) => {
     const [imagePrompt, setImagePrompt] = useState(''); const [generatedImage, setGeneratedImage] = useState(''); const [generatedCaption, setGeneratedCaption] = useState(''); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
     const handleGenerate = async () => {
-        if (!ai) { setError("AI client not initialized. Check GOOGLE_AI_API_KEY environment variable."); return; }
+        if (!ai) { setError("AI client not initialized."); return; }
         if (!imagePrompt.trim()) { setError('Please enter a prompt for the image.'); return; }
         setLoading(true); setError(''); setGeneratedImage(''); setGeneratedCaption('');
         try {
-            const imageResponse = await ai.models.generateImages({ model: 'imagen-3.0-generate-002', prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' } });
-            const base64ImageBytes = imageResponse.generatedImages[0].image.imageBytes;
+            const imageResponse = await ai.model.generateImages({ model: 'imagen-3.0-generate-002', prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' } });
+            const base64ImageBytes = imageResponse.generatedImages?.[0]?.image?.imageBytes;
             const imageUrl = `data:image/jpeg;base64,${base64ImageBytes}`;
             setGeneratedImage(imageUrl);
             const captionPrompt = `You are a social media manager for ${clientInfo?.name || 'a local business'}. Generate a short, engaging Instagram caption for an image based on this concept: "${imagePrompt}". ${clientInfo?.description ? `The business's description is: "${clientInfo.description}".` : ''} The caption should be upbeat, include relevant emojis, and 2-3 relevant hashtags.`;
-            const captionResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: captionPrompt });
+            const captionResponse = await ai.model.generateContent({ model: 'gemini-2.5-flash', contents: captionPrompt });
             setGeneratedCaption(captionResponse.text);
         } catch (err) { console.error("Error generating social post:", err); setError("Sorry, couldn't generate the post. Please try again."); } finally { setLoading(false); }
     };
@@ -728,7 +727,7 @@ const ToolListItem: React.FC<ToolListItemProps> = ({ tool, clientInfo }) => {
     const [guideContent, setGuideContent] = useState<{ consultantGuide: string; clientExplanation: string; } | null>(null); const [guideView, setGuideView] = useState<'consultant' | 'client'>('consultant'); const [error, setError] = useState(""); const [loading, setLoading] = useState(false); const [showCopySuccess, setShowCopySuccess] = useState(false);
     const handleGenerateInstructions = async () => {
         if (!ai) { setError("AI client not initialized. Check API_KEY."); return; }
-        setLoading(true); setGuideContent(null); setError("");       
+        setLoading(true); setGuideContent(null); setError("");
         const prompt = `You are an expert AI implementation consultant creating a setup guide for the tool "${tool.name}" for the business "${clientInfo.name}" (${clientInfo.description || 'a local business'}).
 Generate a JSON object with two distinct keys: "consultantGuide" and "clientExplanation".
 1.  **consultantGuide**: Provide concise, direct, step-by-step instructions for an expert (like me) to set up the tool. Focus on the technical steps. Use markdown with ordered lists and bold text for emphasis.
@@ -739,7 +738,7 @@ Generate a JSON object with two distinct keys: "consultantGuide" and "clientExpl
     Use markdown with h3 headings for sections and bold text.
 Do not use top-level headings (h1, h2) in either section.`;
         try {
-            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { consultantGuide: { type: Type.STRING, description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: Type.STRING, description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
+            const response = await ai.models.generateContent({ model: 'gemini-1.5-flash-preview-0514', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { consultantGuide: { type: Type.STRING, description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: Type.STRING, description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
             const resultData = JSON.parse(response.text); setGuideContent(resultData);
         } catch (err) { console.error("Error generating instructions:", err); setError("Failed to generate instructions. Please try again."); } finally { setLoading(false); }
     };
