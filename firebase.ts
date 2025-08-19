@@ -19,7 +19,7 @@ const analytics = getAnalytics(app);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
-export function firebaseError(error: any) {
+export function getFirebaseErrorMessage(error: any) {
   return error.message;
 }
 

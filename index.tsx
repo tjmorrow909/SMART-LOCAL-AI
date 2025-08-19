@@ -2,17 +2,15 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import ReactDOM from "react-dom/client";
 import { initializeApp } from 'firebase/app';
 import { collection, doc, getDocs, setDoc, deleteDoc, Firestore } from '@firebase/firestore';
-import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from '/home/user/SMART-LOCAL-AI/firebase';
-import { Loader } from "@googlemaps/js-api-loader";
+import { db, getFirebaseErrorMessage, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from '/home/user/SMART-LOCAL-AI/firebase';
+import { Loader } from "@googlemaps/js-api-loader"; // Assuming this is correctly installed
 
 import { getAI, getGenerativeModel, type GenerativeModel } from 'firebase/ai';
 
 declare var google: any;
+
 interface ClientInfo {
   website: string;
-  description: string;
-}
-interface QuestionnaireAnswers {
     goals: string[];
     customerSupportChannels: string[];
     marketingTime: string;
@@ -23,11 +21,20 @@ interface Tool {
     description: string;
     url: string;
 }
+
+interface QuestionnaireAnswers {
+  goals: string[];
+  customerSupportChannels: string[];
+  marketingTime: string;
+  biggestChallenge: string;
+}
+
 interface Profile extends ClientInfo {
   initiatedPackage: string;
   initiatedDate: string;
   tools?: Tool[];
   auditReport?: string;
+  name: string; // Profile extends ClientInfo but needs name explicitly? Or ClientInfo should have name? Let's add it here for now.
 }
 
 const formatMarkdownToHtml = (text: string) => {
@@ -88,11 +95,16 @@ const deleteProfile = async (userId: string, profileName: string) => {
 };
 
 // Initialize the Gemini AI Client
+let firebaseAuthError: string | null = null;
+let firebaseAiError: string | null = null;
 let ai: GenerativeModel | null = null;
-if (!firebaseError) { // Make sure firebaseError is a string here, not a function
-    const firebaseApp = initializeApp(auth.app.options); // Use the same config as auth
-    const aiInstance = getAI(firebaseApp);
-    ai = getGenerativeModel(aiInstance, { model: 'gemini-1.5-flash-preview-0514' });
+
+try {
+    // This block assumes auth.app is already initialized and available
+    const firebaseApp = initializeApp(auth.app.options); // Use the same config as auth initialization
+    ai = getGenerativeModel(getAI(firebaseApp), { model: 'gemini-1.5-flash-preview-0514' });
+} catch (error: any) {
+    firebaseAiError = error.message || 'Failed to initialize AI client.';
 }
 
 // --- Authentication Hook ---
@@ -118,7 +130,7 @@ const useAuth = () => {
 
 // --- App Shell ---
 const App = () => {
-    if (firebaseError) {
+    if (firebaseAuthError || firebaseAiError) {
         return <FirebaseErrorScreen error={firebaseError.toString()} />;
     }
     const { user, loading } = useAuth();
