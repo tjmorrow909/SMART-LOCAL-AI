@@ -893,7 +893,7 @@ const MapView = ({ setView, setClientInfo }: { setView: (view: View) => void, se
     const markersRef = useRef<any[]>([]);
     const infoWindowRef = useRef<any | null>(null);
 
-    const mapsApiKey = useMemo(() => process.env.MAPS_API_KEY, []);
+    const mapsApiKey = useMemo(() => import.meta.env.VITE_MAPS_API_KEY, []);
    
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
