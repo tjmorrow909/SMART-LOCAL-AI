@@ -1,17 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { initializeApp } from 'firebase/app';
-import { collection, doc, getDocs, setDoc, deleteDoc } from '@firebase/firestore';
-import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth } from './firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc, Firestore } from '@firebase/firestore';
+import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from '/home/user/SMART-LOCAL-AI/firebase';
 import { Loader } from "@googlemaps/js-api-loader";
 
-declare var google: any;
-
 import { getAI, getGenerativeModel, type GenerativeModel } from 'firebase/ai';
-// --- App Structure and Types ---
-type View = "clientSetup" | "questionnaire" | "services" | "audit" | "tools" | "profiles" | "map";
+
+declare var google: any;
 interface ClientInfo {
-  name: string;
   website: string;
   description: string;
 }
@@ -34,6 +31,8 @@ interface Profile extends ClientInfo {
 }
 
 const formatMarkdownToHtml = (text: string) => {
+  // --- App Structure and Types ---
+
     if (!text) return "";
     let html = text
         .replace(/</g, "&lt;")
@@ -90,10 +89,10 @@ const deleteProfile = async (userId: string, profileName: string) => {
 
 // Initialize the Gemini AI Client
 let ai: GenerativeModel | null = null;
-if (!firebaseError) {
+if (!firebaseError) { // Make sure firebaseError is a string here, not a function
     const firebaseApp = initializeApp(auth.app.options); // Use the same config as auth
     const aiInstance = getAI(firebaseApp);
-    ai = getGenerativeModel(aiInstance, 'gemini-1.5-flash-preview-0514');
+    ai = getGenerativeModel(aiInstance, { model: 'gemini-1.5-flash-preview-0514' });
 }
 
 // --- Authentication Hook ---
@@ -120,8 +119,8 @@ const useAuth = () => {
 // --- App Shell ---
 const App = () => {
     if (firebaseError) {
-        return <FirebaseErrorScreen error={firebaseError} />;
-    } // Pass the function call result, not the function
+        return <FirebaseErrorScreen error={firebaseError.toString()} />;
+    }
     const { user, loading } = useAuth();
     if (loading) { return <LoadingScreen />; }
     if (!user) { return <LoginView />; }
@@ -156,7 +155,7 @@ const LoadingScreen = () => (
     </div>
 );
 
-const FirebaseErrorScreen = ({ error }: { error: string }) => (
+const FirebaseErrorScreen = ({ error }: { error: string | Error | unknown }) => (
     <div className="login-view">
         <div className="login-box" style={{ borderColor: 'var(--danger)', borderWidth: '2px', borderStyle: 'solid' }}>
             <LogoSvg theme="dark" />
@@ -244,11 +243,10 @@ const MainApp = ({ user }: { user: User }) => {
 interface HeaderProps {
   currentView: View;
   setView: (view: View) => void;
-  clientName?: string;
+  clientName: string | undefined;
   hasClient: boolean;
   user: User;
-  signOut: () => void;
-  signOut: () => Promise<void>;
+  signOut: (auth: Auth) => Promise<void>; // Correct type to match Firebase auth.signOut
 }
 const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: HeaderProps) => {
   const navItems: {id: View, label: string}[] = [
@@ -263,7 +261,7 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await signOut(auth); // Pass the auth object
     } catch (error) {
       console.error("Sign out failed:", error);
       alert(`Sign out failed: ${error}`);
@@ -292,8 +290,7 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
       <div className="header-user-info">
         {user.photoURL && <img src={user.photoURL} alt="User profile picture" />}
         <span className="user-name">{user.displayName}</span>
-        <button onClick={handleSignOut} className="btn-sign-out">Sign Out</button>
-      </div>import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from './firebase';
+        <button onClick={() => handleSignOut()} className="btn-sign-out">Sign Out</button>      </div>
     </header>
   );
 };
@@ -305,8 +302,8 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
     const [notes, setNotes] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
-    
     const handleProceed = async () => {
+    
         if (!ai) { setError("AI client not initialized."); return; }
         if (!notes.trim()) {
             alert("Please provide some notes before proceeding.");
@@ -324,18 +321,16 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
         ${notes}
         ---
         Return the result as a JSON object with the keys "name", "website", and "description". If a piece of information isn't found, return an empty string for that key.`;
-        try {
+ try {
             const response = await ai.models.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     responseMimeType: "application/json", // Request JSON output
                     responseSchema: {
-                             name: { type: "STRING" }, website: { type: "STRING" }, description: { type: "STRING" }
-                         },
-                        required: ["name", "website", "description"]
+                             name: { type: "STRING" }, website: { type: "STRING" }, description: { type: "STRING" }, required: ["name", "website", "description"] 
                     }
                 }
-            });
+ });
             const extractedInfo = JSON.parse(response.text);
             if (!extractedInfo.name) {
                 throw new Error("Could not identify a business name from the notes.");
@@ -348,7 +343,7 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
             setIsProcessing(false);
         }
     };
-    
+
     const keyQuestions = ["What is the business name and website?", "What products or services do you offer?", "Who are your primary customers?", "What are your biggest business goals right now?", "What's your biggest challenge or bottleneck?", "How do you currently handle marketing?", "How do you communicate with customers?"];
 
     return (
@@ -622,7 +617,7 @@ const AiToolGenerator = ({ title, promptTemplate, children, getInputs, useGoogle
     setLoading(true); setResult(""); setError(""); setSources([]);
     try {
       const prompt = promptTemplate(inputs);
-      const response = await ai.model.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], ...(useGoogleSearch && { tools: [{googleSearch: {}}] }) });
+      const response = await (ai as GenerativeModel).model.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], ...(useGoogleSearch && { tools: [{googleSearch: {}}] }) });
       setResult(response.text);
       const groundingMetadata = response.candidates?.[0]?.citationMetadata; // Use citationMetadata
       if (groundingMetadata?.groundingChunks) { setSources(groundingMetadata.groundingChunks); }

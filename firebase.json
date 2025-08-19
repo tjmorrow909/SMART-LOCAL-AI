@@ -1,17 +1,16 @@
 {
-    "hosting": {
+    "hosting": [{
       "site": "smart-local-ai-usa",
       "public": "dist",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [{ "source": "**", "destination": "/index.html" }]
     },
-    {
-      "site": "smart-local-ai-usa-45ac6",
-      "public": "dist",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-      "rewrites": [{ "source": "**", "destination": "/index.html" }]
-    }
+ {
+ "site": "smart-local-ai-usa-45ac6",
+ "public": "dist",
+ "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+ "rewrites": [{ "source": "**", "destination": "/index.html" }]
+ }
   ]
 }
-
   
