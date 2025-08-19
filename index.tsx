@@ -5,10 +5,9 @@ import { collection, doc, getDocs, setDoc, deleteDoc } from '@firebase/firestore
 import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth } from './firebase';
 import { Loader } from "@googlemaps/js-api-loader";
 
-import type { User } from 'firebase/auth'; // Import User type from Firebase Auth
 declare var google: any;
 
-import { getAI, getGenerativeModel, type GenerativeModel, type User } from 'firebase/ai';
+import { getAI, getGenerativeModel, type GenerativeModel } from 'firebase/ai';
 // --- App Structure and Types ---
 type View = "clientSetup" | "questionnaire" | "services" | "audit" | "tools" | "profiles" | "map";
 interface ClientInfo {
@@ -122,7 +121,7 @@ const useAuth = () => {
 const App = () => {
     if (firebaseError) {
         return <FirebaseErrorScreen error={firebaseError} />;
-    }
+    } // Pass the function call result, not the function
     const { user, loading } = useAuth();
     if (loading) { return <LoadingScreen />; }
     if (!user) { return <LoginView />; }
@@ -249,6 +248,7 @@ interface HeaderProps {
   hasClient: boolean;
   user: User;
   signOut: () => void;
+  signOut: () => Promise<void>;
 }
 const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: HeaderProps) => {
   const navItems: {id: View, label: string}[] = [
@@ -294,7 +294,6 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
         <span className="user-name">{user.displayName}</span>
         <button onClick={handleSignOut} className="btn-sign-out">Sign Out</button>
       </div>import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from './firebase';
-
     </header>
   );
 };
@@ -330,7 +329,7 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     responseMimeType: "application/json", // Request JSON output
-                     responseSchema: {
+                    responseSchema: {
                              name: { type: "STRING" }, website: { type: "STRING" }, description: { type: "STRING" }
                          },
                         required: ["name", "website", "description"]
@@ -501,7 +500,7 @@ const AuditView = ({ clientInfo, questionnaireAnswers, user }: AuditViewProps) =
     const prompt = `You are the SmartLocal AI Audit Bot. Your mission is to help small local businesses grow using **only Google tools and services**.
 
 **Your Persona & Rules:**
-- Your identity is the "SmartLocal AI Audit Bot".
+- Your identity is the "SmartLocal AI Audit Bot". It is critical that you adopt the communication strategy provided based on the client's mindset.
 - You **must exclusively recommend solutions from the Google ecosystem** (e.g., Google Workspace, Google Cloud, Firebase, Vertex AI, Google Ads, Google Business Profile, YouTube, etc.). **Never suggest non-Google tools.**
 - Your language must be plain, friendly, and professional, focusing on immediate wins and clear ROI.
 - Your tone and pacing must be adjusted based on the client's mindset.
@@ -535,7 +534,7 @@ A single sentence explaining the potential return on investment in simple terms.
 - **VIP Automation ($699+):** For a full Google AI business system revamp.`;
     try {
       const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], config: { tools: [{ googleSearch: {} }] }, });
-      const resultText = response.text; // Use .text property for string response
+      const resultText = response.text;
       setAuditResult(resultText);
       const packages = ["VIP Automation", "Growth Kit", "Quick Boost"];
       let foundPackage: string | null = null;
@@ -557,9 +556,9 @@ A single sentence explaining the potential return on investment in simple terms.
     try {
             const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: [{ role: "user", parts: [{ text: toolPrompt }] }], config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { tools: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING", description: "Name of the AI tool or service." }, description: { type: "STRING", description: "A one-sentence explanation of its benefit to the business." }, url: { type: "STRING", description: "The homepage URL of the tool." } }, required: ["name", "description", "url"] } } }, required: ["tools"] } }
         });
-    
 
         const resultData = JSON.parse(response.text);
+
         const newProfile: Profile = { ...clientInfo, initiatedPackage: selectedPackage, initiatedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), tools: resultData.tools || [], auditReport: auditResult };
         await saveProfile(user.uid, newProfile);
         setIsInitiated(true);
@@ -738,8 +737,8 @@ Generate a JSON object with two distinct keys: "consultantGuide" and "clientExpl
     Use markdown with h3 headings for sections and bold text.
 Do not use top-level headings (h1, h2) in either section.`;
         try {
-            const response = await ai.models.generateContent({ model: 'gemini-1.5-flash-preview-0514', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { consultantGuide: { type: Type.STRING, description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: Type.STRING, description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
-            const resultData = JSON.parse(response.text); setGuideContent(resultData);
+            const response = await ai.model.generateContent({ model: 'gemini-1.5-flash-preview-0514', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { consultantGuide: { type: "STRING", description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: "STRING", description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
+            const resultData = JSON.parse(response.text); setGuideContent(resultData); // Correctly parse JSON
         } catch (err) { console.error("Error generating instructions:", err); setError("Failed to generate instructions. Please try again."); } finally { setLoading(false); }
     };
     const stripMarkdown = (text: string): string => { if (!text) return ""; return text.replace(/### (.*)/g, '$1').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^\s*-\s(.*)/gm, '- $1').replace(/^\s*\d\.\s(.*)/gm, (match, p1) => `${match.split('.')[0]}. ${p1}`).replace(/\n{2,}/g, '\n\n').trim(); };
