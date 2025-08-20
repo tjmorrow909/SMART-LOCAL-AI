@@ -6,13 +6,13 @@ import { getFirestore, type Firestore } from '@firebase/firestore';
 // Firebase configuration is now securely read from environment variables.
 // Ensure these are set in your deployment environment.
 const firebaseConfig = {
-  apiKey: "AIzaSyDEh4oZeZsc8elIexA1MHKVr3RED1aqgVg",
-  authDomain: "smart-local-ai-usa.firebaseapp.com",
-  projectId: "smart-local-ai-usa",
-  storageBucket: "smart-local-ai-usa.firebasestorage.app",
-  messagingSenderId: "878199402577",
-  appId: "1:878199402577:web:990be530f0220357210870",
-  measurementId: "G-2CHTVK5C3E"
+  apiKey: "AIzaSyDc8wSWfDRCo7-I7zi0F5xHs0RaSvAauME",
+  authDomain: "smartlocalai-ee2a5.firebaseapp.com",
+  projectId: "smartlocalai-ee2a5",
+  storageBucket: "smartlocalai-ee2a5.firebasestorage.app",
+  messagingSenderId: "499745794023",
+  appId: "1:499745794023:web:c0f500a86fe88955c9bf42",
+  measurementId: "G-084LWY33K9"
 };
 
 let auth: ReturnType<typeof getAuth> | null = null;
