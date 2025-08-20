@@ -1,9 +1,8 @@
 
+
 import { initializeApp, getApp, getApps } from '@firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from '@firebase/auth';
 import { getFirestore, type Firestore } from '@firebase/firestore';
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 
 // Firebase configuration is now securely read from environment variables.
 // Ensure these are set in your deployment environment.
@@ -40,9 +39,6 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
   console.warn(firebaseError);
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const signInWithGoogle = () => {
     if (!auth || !provider) {
         throw new Error("Firebase Auth not initialized. Check your Firebase configuration.");
