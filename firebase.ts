@@ -1,36 +1,55 @@
-interface ImportMetaEnv {
-  VITE_SOME_ENV: string;
-  VITE_MAPS_API_KEY: string;
-}
-interface ImportMeta { env: ImportMetaEnv; }
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, type User } from 'firebase/auth';
-import { getAnalytics } from "firebase/analytics";
- 
+
+import { initializeApp, getApp, getApps } from '@firebase/app';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from '@firebase/auth';
+import { getFirestore, type Firestore } from '@firebase/firestore';
+
+// Firebase configuration is now securely read from environment variables.
+// Ensure these are set in your deployment environment.
 const firebaseConfig = {
-  apiKey: "AIzaSyBFH5WfN7mUNCjh5kLMsL8GZTVp9BVIvvg",
-  authDomain: "smart-local-ai-usa-45ac6.firebaseapp.com",
-  projectId: "smart-local-ai-usa-45ac6",
-  storageBucket: "smart-local-ai-usa-45ac6.firebasestorage.app",
-  messagingSenderId: "1008259191905",
-  appId: "1:1008259191905:web:b83c57f8c3e31cb52d8620",
-  measurementId: "G-ZQQ60HRE8N"
+  apiKey: "AIzaSyDEh4oZeZsc8elIexA1MHKVr3RED1aqgVg",
+  authDomain: "smart-local-ai-usa.firebaseapp.com",
+  projectId: "smart-local-ai-usa",
+  storageBucket: "smart-local-ai-usa.firebasestorage.app",
+  messagingSenderId: "878199402577",
+  appId: "1:878199402577:web:990be530f0220357210870",
+  measurementId: "G-2CHTVK5C3E"
 };
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+let auth: ReturnType<typeof getAuth> | null = null;
+let db: Firestore | null = null;
+let firebaseError: string | null = null;
+let provider: GoogleAuthProvider | null = null;
 
-export function getFirebaseErrorMessage(error: any) {
-  return error.message;
+// Check if the necessary Firebase config variables are provided
+if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+  try {
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    provider = new GoogleAuthProvider();
+  } catch (error: any) {
+    console.error("Firebase initialization failed:", error);
+    firebaseError = error.message || "An unknown error occurred during Firebase initialization.";
+    db = null;
+    auth = null;
+  }
+} else {
+  firebaseError = "Firebase configuration is missing from environment variables. Please set them to connect to Firebase.";
+  console.warn(firebaseError);
 }
 
-export function signInWithGoogle() {
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+const signInWithGoogle = () => {
+    if (!auth || !provider) {
+        throw new Error("Firebase Auth not initialized. Check your Firebase configuration.");
+    }
+    return signInWithPopup(auth, provider);
 }
 
-export { signOut, onAuthStateChanged };
-export type { User };
+const signOut = () => {
+    if (!auth) {
+        throw new Error("Firebase Auth not initialized. Check your Firebase configuration.");
+    }
+    return firebaseSignOut(auth);
+}
+
+export { db, auth, signInWithGoogle, signOut, onAuthStateChanged, firebaseError, User };

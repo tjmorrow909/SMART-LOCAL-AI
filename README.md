@@ -4,52 +4,17 @@
 
 # Run and deploy your AI Studio app
 
-This application is designed to be run on Google Cloud Run.
+This contains everything you need to run your app locally.
 
-## Running on Cloud Run
+View your app in AI Studio: https://ai.studio/apps/drive/13R4fDxC_pdM0tIOgMSQC9Wz_PWGdsEFB
 
-This application is designed to be run on Google Cloud Run. Follow these steps to build a container image and deploy it:
+## Run Locally
 
-**Prerequisites:**
-
-*   A Google Cloud Platform account and project.
-*   The `gcloud` command-line tool installed and configured.
-*   Docker installed.
-
-**Steps:**
-
-1.  **Build the Docker image:**
-
-    Navigate to the root directory of your project and run the following command to build the Docker image. Replace `your-gcr-io-path` with your Google Container Registry path (e.g., `gcr.io/your-gcp-project-id/your-app-name`).
+**Prerequisites:**  Node.js
 
 
-
-This application is designed to be run on Google Cloud Run. Follow these steps to build a container image and deploy it:
-
-**Prerequisites:**
-
-*   A Google Cloud Platform account and project.
-*   The `gcloud` command-line tool installed and configured.
-*   Docker installed.
-
-**Steps:**
-
-1.  **Build the Docker image:**
-
-    Navigate to the root directory of your project and run the following command to build the Docker image. Replace `your-gcr-io-path` with your Google Container Registry path (e.g., `gcr.io/your-gcp-project-id/your-app-name`).
-
-
-
-This application is designed to be run on Google Cloud Run. Follow these steps to build a container image and deploy it:
-
-**Prerequisites:**
-
-*   A Google Cloud Platform account and project.
-*   The `gcloud` command-line tool installed and configured.
-*   Docker installed.
-
-**Steps:**
-
-1.  **Build the Docker image:**
-
-
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
