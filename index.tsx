@@ -1,7 +1,15 @@
+interface ImportMetaEnv {
+  VITE_SOME_ENV: string;
+  VITE_MAPS_API_KEY: string;
+}
+interface ImportMeta {
+  env: ImportMetaEnv;
+}
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { initializeApp } from 'firebase/app';
 import { collection, doc, getDocs, setDoc, deleteDoc, Firestore } from '@firebase/firestore';
+import { Auth } from 'firebase/auth';
 import { db, getFirebaseErrorMessage, signInWithGoogle, signOut, onAuthStateChanged, auth, type User } from '/home/user/SMART-LOCAL-AI/firebase';
 import { Loader } from "@googlemaps/js-api-loader"; // Assuming this is correctly installed
 
@@ -9,12 +17,16 @@ import { getAI, getGenerativeModel, type GenerativeModel } from 'firebase/ai';
 
 declare var google: any;
 
+type View = "clientSetup" | "map" | "profiles" | "audit" | "tools" | "services" | "questionnaire";
+
 interface ClientInfo {
   website: string;
     goals: string[];
     customerSupportChannels: string[];
     marketingTime: string;
     biggestChallenge: string;
+    name: string;
+    description: string;
 }
 interface Tool {
     name: string;
@@ -102,7 +114,7 @@ let ai: GenerativeModel | null = null;
 try {
     // This block assumes auth.app is already initialized and available
     const firebaseApp = initializeApp(auth.app.options); // Use the same config as auth initialization
-    ai = getGenerativeModel(getAI(firebaseApp), { model: 'gemini-1.5-flash-preview-0514' });
+ ai = getGenerativeModel(getAI(firebaseApp), { model: 'gemini-1.5-flash-preview-0514' });
 } catch (error: any) {
     firebaseAiError = error.message || 'Failed to initialize AI client.';
 }
@@ -131,8 +143,8 @@ const useAuth = () => {
 // --- App Shell ---
 const App = () => {
     if (firebaseAuthError || firebaseAiError) {
-        return <FirebaseErrorScreen error={firebaseError.toString()} />;
-    }
+        return <FirebaseErrorScreen error={firebaseAiError.toString()} />;
+ } else if (firebaseAiError) { return <FirebaseErrorScreen error={firebaseAiError.toString()} />; }
     const { user, loading } = useAuth();
     if (loading) { return <LoadingScreen />; }
     if (!user) { return <LoginView />; }
@@ -216,8 +228,8 @@ const LoginView = () => {
 
 
 const MainApp = ({ user }: { user: User }) => {
-  const [view, setView] = useState<View>("clientSetup");
-  const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
+  const [view, setView] = useState<View>("clientSetup"); // Use imported View type
+  const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null); // This is temporary for the current session
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState<QuestionnaireAnswers | null>(null);
   
   const renderView = () => {
@@ -227,7 +239,7 @@ const MainApp = ({ user }: { user: User }) => {
       case "questionnaire":
         return <QuestionnaireView setView={setView} setQuestionnaireAnswers={setQuestionnaireAnswers} clientName={clientInfo?.name} />;
       case "audit":
-        return <AuditView clientInfo={clientInfo} questionnaireAnswers={questionnaireAnswers} user={user} />;
+        return <AuditView clientInfo={clientInfo} questionnaireAnswers={questionnaireAnswers} user={user} setClientInfo={setClientInfo} setView={setView} />;
       case "tools":
         return <ToolsView clientInfo={clientInfo} />;
       case "profiles":
@@ -264,7 +276,7 @@ const Header = ({ currentView, setView, clientName, hasClient, user, signOut }: 
   const navItems: {id: View, label: string}[] = [
       { id: "clientSetup", label: "Client" },
       { id: "map", label: "Map"},
-      { id: "profiles", label: "Profiles" },
+ { id: "profiles", label: "Profiles" },
       { id: "audit", label: "Audit" },
       { id: "tools", label: "Tools" },
       { id: "services", label: "Services" },
@@ -325,17 +337,17 @@ const ClientSetupView = ({ setView, setClientInfo }: { setView: (view: View) => 
         setError('');
         const prompt = `Analyze the following unstructured notes from a client consultation. Your task is to extract key information about the business.
         From the notes, identify:
-        1. The official name of the business.
+ 1. The official name of the business.
         2. The business's website URL, if mentioned.
         3. A concise, one-paragraph summary of what the business does, its main offerings, or its current situation.
         Notes:
         ---
         ${notes}
-        ---
+ ---
         Return the result as a JSON object with the keys "name", "website", and "description". If a piece of information isn't found, return an empty string for that key.`;
  try {
-            const response = await ai.models.generateContent({
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            const response = await ai.model.generateContent({
+ contents: [{ role: "user", parts: [{ text: prompt }] }],
                 config: {
                     responseMimeType: "application/json", // Request JSON output
                     responseSchema: {
@@ -439,7 +451,7 @@ const QuestionnaireView = ({ setView, setQuestionnaireAnswers, clientName }: { s
         </div>
     );
 };
-
+// Service View remains unchanged as it doesn't use clientInfo or AI
 const ServicesView = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const services = [ { id: "quick-boost", name: "Quick Boost", price: "$99", description: "Setup of 1 AI tool, perfect for a quick and impactful start.", details: [ "Setup of 1 AI tool (e.g. chatbot or caption generator)", "30-minute setup and 10-minute tutorial", "PDF cheat sheet with instructions", ], }, { id: "growth-kit", name: "Growth Kit", price: "$299", description: "A comprehensive package to integrate multiple AI solutions.", details: [ "Setup of 3 AI tools (chatbot, content system, review reply)", "Custom templates + branding alignment", "7-day support", ], }, { id: "vip-automation", name: "VIP Automation", price: "$699+", description: "A complete AI transformation for your business.", details: [ "Full AI audit and business system revamp", "Up to 5 integrated tools", "Custom-trained assistant for posts, replies, scheduling", "AI-generated assets, print-ready QR codes, and training", ], }, ];
@@ -469,6 +481,8 @@ interface AuditViewProps {
   clientInfo: ClientInfo | null;
   questionnaireAnswers: QuestionnaireAnswers | null;
   user: User;
+  setClientInfo: (info: ClientInfo | null) => void;
+ setView: (view: View) => void;
 }
 
 const AuditView = ({ clientInfo, questionnaireAnswers, user }: AuditViewProps) => {
@@ -521,7 +535,7 @@ const AuditView = ({ clientInfo, questionnaireAnswers, user }: AuditViewProps) =
 - Description: "${clientInfo.description || 'Not provided'}"
 ${questionnaireSummary}
 
-**Your Task:**
+ **Your Task:**
 1.  Use Google Search to analyze the client's online presence.
 2.  Based on your analysis and the questionnaire, generate a report in markdown.
 3.  The report must contain these exact sections:
@@ -540,8 +554,8 @@ A single sentence explaining the potential return on investment in simple terms.
 - **Growth Kit ($299):** For integrating a few core Google AI tools.
 - **VIP Automation ($699+):** For a full Google AI business system revamp.`;
     try {
-      const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], config: { tools: [{ googleSearch: {} }] }, });
-      const resultText = response.text;
+      const response = await ai.model.generateContent({ model: 'gemini-2.5-flash', contents: [{ role: "user", parts: [{ text: prompt }] }], config: { tools: [{ googleSearch: {} }] }, });
+ const resultText = response.text;
       setAuditResult(resultText);
       const packages = ["VIP Automation", "Growth Kit", "Quick Boost"];
       let foundPackage: string | null = null;
@@ -558,16 +572,23 @@ A single sentence explaining the potential return on investment in simple terms.
     if (!clientInfo || !user) return;
     setGeneratingTools(true);
     setIsInitiated(false);
-    setError("");
+ setError("");
     const toolPrompt = `For a business named "${clientInfo.name}" with the description "${clientInfo.description || 'N/A'}" that has signed up for our "${selectedPackage}" package, please generate a list of 3 to 5 specific AI tools or services exclusively from the Google ecosystem that would be highly beneficial for them. For each tool, provide its name (e.g., "Google Business Profile," "Google Analytics," "Google Ads AI"), a one-sentence description of how it helps this specific business, and a valid, real-world URL for the tool's website. The output must be a JSON object with a single key "tools", which is an array of objects.`;
     try {
-            const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: [{ role: "user", parts: [{ text: toolPrompt }] }], config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { tools: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING", description: "Name of the AI tool or service." }, description: { type: "STRING", description: "A one-sentence explanation of its benefit to the business." }, url: { type: "STRING", description: "The homepage URL of the tool." } }, required: ["name", "description", "url"] } } }, required: ["tools"] } }
-        });
+            const response = await ai.model.generateContent({ model: "gemini-2.5-flash", contents: [{ role: "user", parts: [{ text: toolPrompt }] }], config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { tools: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING", description: "Name of the AI tool or service." }, description: { type: "STRING", description: "A one-sentence explanation of its benefit to the business." }, url: { type: "STRING", description: "The homepage URL of the tool." } }, required: ["name", "description", "url"] } } }, required: ["tools"] } }
+ });
 
         const resultData = JSON.parse(response.text);
 
+ if (!clientInfo.name) {
+            setError("Client name is missing. Cannot save profile.");
+            setGeneratingTools(false);
+            return;
+ }
+
         const newProfile: Profile = { ...clientInfo, initiatedPackage: selectedPackage, initiatedDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), tools: resultData.tools || [], auditReport: auditResult };
         await saveProfile(user.uid, newProfile);
+ clientInfo(newProfile); // Update current clientInfo with saved profile details
         setIsInitiated(true);
     } catch (err) {
         setError("Failed to generate the recommended tools for the profile. The profile was not saved. Please try again.");
@@ -662,14 +683,14 @@ const SocialPostCreator = ({ clientInfo }: { clientInfo: ClientInfo | null }) =>
         if (!imagePrompt.trim()) { setError('Please enter a prompt for the image.'); return; }
         setLoading(true); setError(''); setGeneratedImage(''); setGeneratedCaption('');
         try {
-            const imageResponse = await ai.model.generateImages({ model: 'imagen-3.0-generate-002', prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' } });
+            const imageResponse = await (ai as GenerativeModel).model.generateImages({ model: 'imagen-3.0-generate-002', prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' } });
             const base64ImageBytes = imageResponse.generatedImages?.[0]?.image?.imageBytes;
             const imageUrl = `data:image/jpeg;base64,${base64ImageBytes}`;
             setGeneratedImage(imageUrl);
             const captionPrompt = `You are a social media manager for ${clientInfo?.name || 'a local business'}. Generate a short, engaging Instagram caption for an image based on this concept: "${imagePrompt}". ${clientInfo?.description ? `The business's description is: "${clientInfo.description}".` : ''} The caption should be upbeat, include relevant emojis, and 2-3 relevant hashtags.`;
             const captionResponse = await ai.model.generateContent({ model: 'gemini-2.5-flash', contents: captionPrompt });
             setGeneratedCaption(captionResponse.text);
-        } catch (err) { console.error("Error generating social post:", err); setError("Sorry, couldn't generate the post. Please try again."); } finally { setLoading(false); }
+        } catch (err) { console.error("Error generating social post:", err); setError("Sorry, couldn't generate the post. Please try again. Make sure the AI client is initialized and check your prompt."); } finally { setLoading(false); }
     };
     return (
         <div className="tool-card social-post-creator">
@@ -744,8 +765,8 @@ Generate a JSON object with two distinct keys: "consultantGuide" and "clientExpl
     Use markdown with h3 headings for sections and bold text.
 Do not use top-level headings (h1, h2) in either section.`;
         try {
-            const response = await ai.model.generateContent({ model: 'gemini-1.5-flash-preview-0514', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { consultantGuide: { type: "STRING", description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: "STRING", description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
-            const resultData = JSON.parse(response.text); setGuideContent(resultData); // Correctly parse JSON
+            const response = await (ai as GenerativeModel).model.generateContent({ model: 'gemini-1.5-flash-preview-0514', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { consultantGuide: { type: "STRING", description: "Technical, step-by-step setup guide for the consultant, formatted in markdown." }, clientExplanation: { type: "STRING", description: "Benefit-focused explanation for the business owner, including usage and social proof, formatted in markdown." } }, required: ["consultantGuide", "clientExplanation"] } } });
+            const resultData = JSON.parse(response.text); setGuideContent(resultData);
         } catch (err) { console.error("Error generating instructions:", err); setError("Failed to generate instructions. Please try again."); } finally { setLoading(false); }
     };
     const stripMarkdown = (text: string): string => { if (!text) return ""; return text.replace(/### (.*)/g, '$1').replace(/\*\*(.*?)\*\*/g, '$1').replace(/^\s*-\s(.*)/gm, '- $1').replace(/^\s*\d\.\s(.*)/gm, (match, p1) => `${match.split('.')[0]}. ${p1}`).replace(/\n{2,}/g, '\n\n').trim(); };

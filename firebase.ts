@@ -1,9 +1,13 @@
+interface ImportMetaEnv {
+  VITE_SOME_ENV: string;
+  VITE_MAPS_API_KEY: string;
+}
+interface ImportMeta { env: ImportMetaEnv; }
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, type User } from 'firebase/auth';
-import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-
+ 
 const firebaseConfig = {
   apiKey: "AIzaSyBFH5WfN7mUNCjh5kLMsL8GZTVp9BVIvvg",
   authDomain: "smart-local-ai-usa-45ac6.firebaseapp.com",
