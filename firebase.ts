@@ -7,13 +7,13 @@ import { getFunctions, type Functions } from 'firebase/functions';
 // Ensure these are set in your deployment environment using the VITE_ prefix.
 const env = (import.meta as any).env;
 const firebaseConfig = {
-  apiKey: env?.VITE_FIREBASE_API_KEY,
-  authDomain: env?.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env?.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env?.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env?.VITE_FIREBASE_APP_ID,
-  measurementId: env?.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
+  authDomain: "smartlocalai-469603.firebaseapp.com",
+  projectId: "smartlocalai-469603",
+  storageBucket: "smartlocalai-469603.firebasestorage.app",
+  messagingSenderId: "206325636938",
+  appId: "1:206325636938:web:16040b951bdfb691fbabb3",
+  measurementId: "G-KZHGGD9JVP"
 };
 
 let auth: ReturnType<typeof getAuth> | null = null;
