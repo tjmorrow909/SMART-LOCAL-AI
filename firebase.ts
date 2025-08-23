@@ -1,23 +1,23 @@
-
-
 import { initializeApp, getApp, getApps } from '@firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from '@firebase/auth';
 import { getFirestore, type Firestore } from '@firebase/firestore';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 // Firebase configuration is now securely read from environment variables.
-// Ensure these are set in your deployment environment.
+// Ensure these are set in your deployment environment using the VITE_ prefix.
 const firebaseConfig = {
-  apiKey: "AIzaSyDc8wSWfDRCo7-I7zi0F5xHs0RaSvAauME",
-  authDomain: "smartlocalai-ee2a5.firebaseapp.com",
-  projectId: "smartlocalai-ee2a5",
-  storageBucket: "smartlocalai-ee2a5.firebasestorage.app",
-  messagingSenderId: "499745794023",
-  appId: "1:499745794023:web:c0f500a86fe88955c9bf42",
-  measurementId: "G-084LWY33K9"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 let auth: ReturnType<typeof getAuth> | null = null;
 let db: Firestore | null = null;
+let functions: Functions | null = null;
 let firebaseError: string | null = null;
 let provider: GoogleAuthProvider | null = null;
 
@@ -27,12 +27,14 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    functions = getFunctions(app);
     provider = new GoogleAuthProvider();
   } catch (error: any) {
     console.error("Firebase initialization failed:", error);
     firebaseError = error.message || "An unknown error occurred during Firebase initialization.";
     db = null;
     auth = null;
+    functions = null;
   }
 } else {
   firebaseError = "Firebase configuration is missing from environment variables. Please set them to connect to Firebase.";
@@ -53,4 +55,4 @@ const signOut = () => {
     return firebaseSignOut(auth);
 }
 
-export { db, auth, signInWithGoogle, signOut, onAuthStateChanged, firebaseError, User };
+export { db, auth, functions, signInWithGoogle, signOut, onAuthStateChanged, firebaseError, User };
