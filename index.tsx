@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { collection, doc, getDocs, setDoc, deleteDoc } from '@firebase/firestore';
-import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, type User, auth, functions } from './firebase';
+import { db, firebaseError, signInWithGoogle, signOut, onAuthStateChanged, type User, auth, functions } from './firebase'; // Import functions from firebase.tsimport { httpsCallable } from '@firebase/functions';
 import { httpsCallable } from 'firebase/functions';
 import { Loader } from "@googlemaps/js-api-loader";
 
