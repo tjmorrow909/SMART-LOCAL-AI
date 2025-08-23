@@ -4,16 +4,14 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js"
   },
   "dependencies": {
-    "@firebase/app": "^0.14.1",
-    "@firebase/auth": "^1.11.0",
-    "@firebase/firestore": "^4.9.0",
     "@googlemaps/js-api-loader": "^1.16.6",
     "express": "^4.19.2",
+    "firebase": "10.12.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
