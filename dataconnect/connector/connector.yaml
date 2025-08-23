@@ -8,5 +8,5 @@ generate:
 
 queries:
   getAllUsers:
-    query: |
+    query:
       SELECT * FROM users
