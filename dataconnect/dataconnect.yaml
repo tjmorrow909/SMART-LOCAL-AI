@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "SMART-LOCAL-AI"
+location: "us-west1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "smart-local-ai-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]
