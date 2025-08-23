@@ -5,8 +5,8 @@ generate:
     package: "@firebasegen/default-connector"
     packageJsonDir: ../..
     react: true
-
 queries:
   getAllUsers:
-    query:
-      SELECT * FROM users
+    description: Return all users
+    query: |
+      SELECT * FROM users;
