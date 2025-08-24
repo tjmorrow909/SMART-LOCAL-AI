@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, type FC, type FormEvent } from 'react';
+import React, { useState, useEffect, useRef, type FC } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
 
 // --- Google Maps Type Declarations ---
@@ -77,37 +77,12 @@ interface MapViewProps {
     onStartAudit: (business: { name: string; website?: string }) => void;
 }
 
+// --- Constants ---
+// Using the API key from the firebase config.
+const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
+
+
 // --- Helper Components ---
-
-const ApiKeyForm: FC<{ onSubmit: (key: string) => void }> = ({ onSubmit }) => {
-    const [apiKey, setApiKey] = useState('');
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        if (apiKey.trim()) {
-            onSubmit(apiKey.trim());
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="map-api-key-form">
-            <h3>Google Maps API Key Required</h3>
-            <p>Please provide a valid Google Maps Platform API key with the "Maps JavaScript API" and "Places API" enabled to use this feature.</p>
-            <div className="form-group">
-                <label htmlFor="api-key-input">API Key</label>
-                <input
-                    id="api-key-input"
-                    type="text"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter your API key"
-                    required
-                />
-            </div>
-            <button type="submit" className="btn btn-primary">Save and Load Map</button>
-        </form>
-    );
-};
 
 const MapLoaderFC: FC = () => (
     <div className="map-loader">
@@ -124,12 +99,9 @@ const MapError: FC<{ message: string }> = ({ message }) => (
 // --- Main Map View Component ---
 
 export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
-    const [mapApiKey, setMapApiKey] = useState<string | null>(
-        () => localStorage.getItem('googleMapsApiKey')
-    );
     const [isApiReady, setIsApiReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true); // Start with loading true
     
     const mapRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -139,20 +111,16 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     const markers = useRef<google.maps.Marker[]>([]);
 
     useEffect(() => {
-        if (!mapApiKey) {
-            return; // Wait for API key
-        }
         if (isApiReady) {
             return; // API already loaded
         }
 
         const loader = new Loader({
-            apiKey: mapApiKey,
+            apiKey: MAPS_API_KEY,
             version: "weekly",
             libraries: ["places", "marker"],
         });
         
-        setLoading(true);
         loader.load()
             .then(google => {
                 setIsApiReady(true);
@@ -160,15 +128,13 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
             })
             .catch(e => {
                 console.error("Failed to load Google Maps script:", e);
-                setError("Failed to load Google Maps. Please check your API key and network connection.");
-                localStorage.removeItem('googleMapsApiKey');
-                setMapApiKey(null);
+                setError("Failed to load Google Maps. Please check that the API key is correct and has the 'Maps JavaScript API' and 'Places API' enabled.");
             })
             .finally(() => {
                  setLoading(false);
             });
 
-    }, [mapApiKey, isApiReady]);
+    }, [isApiReady]);
 
     const initMap = (google: typeof window.google) => {
         if (!mapRef.current || !searchInputRef.current) return;
@@ -286,16 +252,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         }
     };
 
-    const handleApiKeySubmit = (key: string) => {
-        localStorage.setItem('googleMapsApiKey', key);
-        setMapApiKey(key);
-        setError(null);
-    };
-
-    if (!mapApiKey) {
-        return <ApiKeyForm onSubmit={handleApiKeySubmit} />;
-    }
-
     return (
         <div className="map-view-wrapper">
             {error && <MapError message={error} />}
@@ -305,6 +261,7 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
                 type="text"
                 className="map-search-input"
                 placeholder="Search for a business or location"
+                disabled={!isApiReady}
             />
             <div ref={mapRef} className="map-container"></div>
         </div>
