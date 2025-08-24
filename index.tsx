@@ -6,6 +6,11 @@ import { MapView } from './MapView';
 
 // --- Type Definitions ---
 type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP';
+interface Business {
+    name: string;
+    website?: string;
+}
+
 
 // --- Logo ---
 const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
@@ -121,25 +126,47 @@ const ClientSetupView: FC = () => (
     </div>
 );
 
-const AuditView: FC = () => (
-    <div className="view-container">
-        <h2>Run a Local Presence Audit</h2>
-        <div className="audit-controls">
-            <div className="form-group">
-                <label htmlFor="business-name">Business Name</label>
-                <input type="text" id="business-name" placeholder="e.g., Joe's Pizza Downtown" />
+const AuditView: FC<{ business?: Business }> = ({ business }) => {
+    const [businessName, setBusinessName] = useState(business?.name || '');
+    const [websiteUrl, setWebsiteUrl] = useState(business?.website || '');
+
+    useEffect(() => {
+        setBusinessName(business?.name || '');
+        setWebsiteUrl(business?.website || '');
+    }, [business]);
+
+    return (
+        <div className="view-container">
+            <h2>Run a Local Presence Audit</h2>
+            <div className="audit-controls">
+                <div className="form-group">
+                    <label htmlFor="business-name">Business Name</label>
+                    <input
+                        type="text"
+                        id="business-name"
+                        placeholder="e.g., Joe's Pizza Downtown"
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="business-website">Website URL</label>
+                    <input
+                        type="url"
+                        id="business-website"
+                        placeholder="https://www.joespizzadt.com"
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                    />
+                </div>
+                <button className="btn btn-primary">Start AI Audit</button>
             </div>
-            <div className="form-group">
-                <label htmlFor="business-website">Website URL</label>
-                <input type="url" id="business-website" placeholder="https://www.joespizzadt.com" />
+            <div className="audit-placeholder">
+                <p>Your audit report will appear here once generated.</p>
             </div>
-            <button className="btn btn-primary">Start AI Audit</button>
         </div>
-        <div className="audit-placeholder">
-            <p>Your audit report will appear here once generated.</p>
-        </div>
-    </div>
-);
+    );
+};
 
 const ProfilesView: FC = () => (
     <div className="view-container profiles-view-container">
@@ -201,9 +228,9 @@ const App: FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentView, setView] = useState<View>('MAP');
+    const [auditTarget, setAuditTarget] = useState<Business | undefined>();
 
     useEffect(() => {
-        // This check ensures 'auth' is initialized before use.
         if (!auth) {
             setLoading(false);
             return;
@@ -214,6 +241,19 @@ const App: FC = () => {
         });
         return () => unsubscribe();
     }, []);
+    
+    const handleStartAudit = (business: Business) => {
+        setAuditTarget(business);
+        setView('AUDIT');
+    };
+
+    const handleViewChange = (view: View) => {
+        // Clear the audit target if we navigate away from the audit view manually
+        if (view !== 'AUDIT') {
+            setAuditTarget(undefined);
+        }
+        setView(view);
+    };
 
     if (firebaseError) {
         return (
@@ -234,19 +274,19 @@ const App: FC = () => {
     
     const renderView = () => {
         switch (currentView) {
-            case 'MAP': return <MapView />;
+            case 'MAP': return <MapView onStartAudit={handleStartAudit} />;
             case 'CLIENT_SETUP': return <ClientSetupView />;
-            case 'AUDIT': return <AuditView />;
+            case 'AUDIT': return <AuditView business={auditTarget} />;
             case 'PROFILES': return <ProfilesView />;
             case 'TOOLS': return <ToolsView />;
-            default: return <MapView />;
+            default: return <MapView onStartAudit={handleStartAudit} />;
         }
     };
 
     return (
         <>
             <OfflineBanner />
-            <AppHeader user={user} currentView={currentView} setView={setView} onSignOut={signOut} />
+            <AppHeader user={user} currentView={currentView} setView={handleViewChange} onSignOut={signOut} />
             <main className="app-container">
                 {renderView()}
             </main>

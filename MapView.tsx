@@ -30,6 +30,8 @@ declare namespace google.maps {
         constructor(opts?: any);
         setContent(content: string | Element): void;
         open(map: Map | any, anchor?: any): void;
+        close(): void;
+        addListener(eventName: string, handler: Function): MapsEventListener;
     }
     class LatLng {
         constructor(lat: number, lng: number);
@@ -52,8 +54,8 @@ declare namespace google.maps {
             addListener(eventName: string, handler: Function): MapsEventListener;
         }
         interface TextSearchRequest {
-            location: LatLng;
-            radius: number;
+            location?: LatLng;
+            radius?: number;
             query: string;
         }
         enum PlacesServiceStatus {
@@ -69,6 +71,10 @@ declare namespace google.maps {
     }
 }
 
+// --- Component Props ---
+interface MapViewProps {
+    onStartAudit: (business: { name: string; website?: string }) => void;
+}
 
 // --- Helper Components ---
 
@@ -102,7 +108,7 @@ const ApiKeyForm: FC<{ onSubmit: (key: string) => void }> = ({ onSubmit }) => {
     );
 };
 
-const MapLoader: FC = () => (
+const MapLoaderFC: FC = () => (
     <div className="map-loader">
         <div className="loading-spinner"></div>
     </div>
@@ -116,7 +122,7 @@ const MapError: FC<{ message: string }> = ({ message }) => (
 
 // --- Main Map View Component ---
 
-export const MapView: FC = () => {
+export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     const [mapApiKey, setMapApiKey] = useState<string | null>(
         () => localStorage.getItem('googleMapsApiKey')
     );
@@ -154,7 +160,6 @@ export const MapView: FC = () => {
             .catch(e => {
                 console.error("Failed to load Google Maps script:", e);
                 setError("Failed to load Google Maps. Please check your API key and network connection.");
-                // Clear the bad key so the user can re-enter it
                 localStorage.removeItem('googleMapsApiKey');
                 setMapApiKey(null);
             })
@@ -167,18 +172,16 @@ export const MapView: FC = () => {
     const initMap = (google: typeof window.google) => {
         if (!mapRef.current || !searchInputRef.current) return;
 
-        const mapOptions = {
+        mapInstance.current = new google.maps.Map(mapRef.current, {
             center: { lat: 34.0522, lng: -118.2437 }, // Default to Los Angeles
             zoom: 12,
             mapId: 'SMART_LOCAL_AI_MAP',
-        };
-        
-        mapInstance.current = new google.maps.Map(mapRef.current, mapOptions);
+        });
         placesService.current = new google.maps.places.PlacesService(mapInstance.current);
         infoWindow.current = new google.maps.InfoWindow();
 
         const autocomplete = new google.maps.places.Autocomplete(searchInputRef.current, {
-             fields: ["geometry", "name"],
+             fields: ["geometry", "name", "website"],
         });
         
         autocomplete.addListener('place_changed', () => {
@@ -186,22 +189,39 @@ export const MapView: FC = () => {
             if (place.geometry && place.geometry.location) {
                 mapInstance.current?.setCenter(place.geometry.location);
                 mapInstance.current?.setZoom(14);
-                performSearch(place.geometry.location);
+                performSearch({ query: searchInputRef.current?.value || place.name || "" });
             } else {
-                 // User entered something that was not suggested and pressed Enter
-                performSearch(mapInstance.current!.getCenter()!, searchInputRef.current!.value);
+                performSearch({ query: searchInputRef.current!.value });
+            }
+        });
+        
+        infoWindow.current.addListener('domready', () => {
+            const button = document.querySelector('.btn-start-audit');
+            if (button) {
+                // Clone and replace the button to remove any old event listeners
+                const newButton = button.cloneNode(true) as Element;
+                button.parentNode?.replaceChild(newButton, button);
+                
+                newButton.addEventListener('click', () => {
+                    const name = newButton.getAttribute('data-name');
+                    const website = newButton.getAttribute('data-website');
+                    if (name) {
+                        onStartAudit({ 
+                            name: decodeURIComponent(name), 
+                            website: website ? decodeURIComponent(website) : undefined 
+                        });
+                        infoWindow.current?.close();
+                    }
+                });
             }
         });
     };
     
-    const performSearch = (location: google.maps.LatLng, query?: string) => {
+    const performSearch = (request: google.maps.places.TextSearchRequest) => {
         if (!placesService.current) return;
-        
-        const request: google.maps.places.TextSearchRequest = {
-            location,
-            radius: 5000, // Search within 5km radius
-            query: query || searchInputRef.current?.value || "restaurants", // default search
-        };
+        if (!request.location) {
+            request.location = mapInstance.current!.getCenter()!;
+        }
         
         setLoading(true);
         placesService.current.textSearch(request, (results, status) => {
@@ -215,31 +235,38 @@ export const MapView: FC = () => {
     };
     
     const createMarkers = (places: google.maps.places.PlaceResult[]) => {
-        // Clear existing markers
         markers.current.forEach(marker => marker.setMap(null));
         markers.current = [];
         
         const bounds = new google.maps.LatLngBounds();
 
         places.forEach(place => {
-            if (!place.geometry || !place.geometry.location) return;
+            if (!place.geometry || !place.geometry.location || !place.name) return;
 
             const marker = new google.maps.Marker({
                 map: mapInstance.current,
                 position: place.geometry.location,
                 title: place.name,
                 animation: google.maps.Animation.DROP,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
             });
             
             marker.addListener('click', () => {
                 if (!infoWindow.current) return;
                 
+                const website = place.website ?? '';
+                const encodedName = encodeURIComponent(place.name!);
+                const encodedWebsite = encodeURIComponent(website);
+
                 const content = `
                     <div class="map-infowindow-content">
-                        <h4>${place.name || 'No name available'}</h4>
+                        <h4>${place.name}</h4>
                         <p>${place.formatted_address || ''}</p>
-                        ${place.website ? `<a href="${place.website}" target="_blank" rel="noopener noreferrer">Visit Website</a>` : ''}
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || '')}&query_place_id=${place.place_id}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">View on Google Maps</a>
+                        ${website ? `<a href="${website}" target="_blank" rel="noopener noreferrer">Visit Website</a>` : ''}
+                        <div class="map-infowindow-buttons">
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodedName}&query_place_id=${place.place_id}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">View on Google</a>
+                            <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start Audit</button>
+                        </div>
                     </div>
                 `;
                 infoWindow.current.setContent(content);
@@ -250,7 +277,7 @@ export const MapView: FC = () => {
             bounds.extend(place.geometry.location);
         });
         
-        if (mapInstance.current) {
+        if (mapInstance.current && markers.current.length > 0) {
            mapInstance.current.fitBounds(bounds);
         }
     };
@@ -258,7 +285,7 @@ export const MapView: FC = () => {
     const handleApiKeySubmit = (key: string) => {
         localStorage.setItem('googleMapsApiKey', key);
         setMapApiKey(key);
-        setError(null); // Clear previous errors
+        setError(null);
     };
 
     if (!mapApiKey) {
@@ -268,7 +295,7 @@ export const MapView: FC = () => {
     return (
         <div className="map-view-wrapper">
             {error && <MapError message={error} />}
-            {loading && <MapLoader />}
+            {loading && <MapLoaderFC />}
             <input
                 ref={searchInputRef}
                 type="text"
