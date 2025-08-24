@@ -2,13 +2,13 @@ import React, { useState, useEffect, type FC } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { auth, signInWithGoogle, signOut, type User, firebaseError } from './firebase';
+import { MapView } from './MapView';
 
 // --- Type Definitions ---
-type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS';
+type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP';
 
-// --- SVG Logo (as a Base64 Data URI) ---
-const logoSvg = `<svg width="200" height="50" viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.944 38.336h-3.328V18.176h3.328v20.16zm5.888-20.16c-2.816 0-5.024 2.144-5.024 5.376s2.208 5.376 5.024 5.376c2.816 0 5.024-2.144 5.024-5.376s-2.208-5.376-5.024-5.376zm0 7.424c-1.12 0-1.728-.8-1.728-2.048 0-1.216.608-2.048 1.728-2.048 1.12 0 1.728.832 1.728 2.048 0 1.248-.608 2.048-1.728 2.048zm6.528 12.736h3.328V18.176h-3.328v20.16zm9.216-13.824c0-4.064 2.912-6.336 6.816-6.336 3.84 0 6.784 2.272 6.784 6.336v13.824h-3.328V24.512c0-2.336-1.408-3.712-3.456-3.712s-3.456 1.376-3.456 3.712v13.824h-3.328V24.512zM52.096 38.336h3.328V18.176h-3.328v20.16zm9.824 0h3.52l6.56-10.464V38.336h3.2V18.176h-3.52L65.12 28.32V18.176h-3.2v20.16zm18.496-10.88c0-4.352 3.168-7.2 7.776-7.2 5.024 0 7.84 3.296 7.84 7.776 0 4.64-3.232 7.808-8.224 7.808h-4.064l-.064-8.384zm3.328 5.056h1.44c3.04 0 4.96-1.632 4.96-4.48 0-2.56-1.76-4.256-4.608-4.256-3.136 0-4.768 1.92-4.768 4.672v4.064zM107.01 38.336h3.328V24.512c0-2.336 1.408-3.712 3.456-3.712s3.456 1.376 3.456 3.712v13.824h3.328V24.512c0-4.064-2.912-6.336-6.816-6.336-3.84 0-6.784 2.272-6.784 6.336v13.824zM125.89 38.336h10.4v-3.2h-7.072V18.176h-3.328v20.16zm15.136 0h3.52l6.56-10.464V38.336h3.2V18.176h-3.52l-6.56 10.144V18.176h-3.2v20.16z" fill="#F4F7FC"/><path d="M165.71 18.176v20.16h3.328V28.64h4.928v-3.2h-4.928v-4.064h5.856v-3.2h-5.856V18.176h-3.328zM178.61 23.36c0-3.392 2.272-5.184 5.344-5.184s5.344 1.792 5.344 5.184-2.272 5.184-5.344 5.184-5.344-1.792-5.344-5.184zm7.392 0c0-1.6-1.024-2.24-2.048-2.24s-2.048.64-2.048 2.24.992 2.24 2.048 2.24 2.048-.64 2.048-2.24zM193.36 18.176h3.328v20.16h-3.328V18.176z" fill="#A6CE39"/></svg>`;
-const logoUrl = `data:image/svg+xml;base64,${btoa(logoSvg)}`;
+// --- Logo ---
+const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
 
 
 // --- Core Components ---
@@ -36,6 +36,7 @@ const LoginView: FC = () => (
 
 const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => void; onSignOut: () => void; }> = ({ user, currentView, setView, onSignOut }) => {
     const views: { id: View; label: string }[] = [
+        { id: 'MAP', label: 'Map View' },
         { id: 'CLIENT_SETUP', label: 'Client Setup' },
         { id: 'AUDIT', label: 'Run Audit' },
         { id: 'PROFILES', label: 'Profiles' },
@@ -199,7 +200,7 @@ const ToolsView: FC = () => (
 const App: FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [currentView, setView] = useState<View>('CLIENT_SETUP');
+    const [currentView, setView] = useState<View>('MAP');
 
     useEffect(() => {
         // This check ensures 'auth' is initialized before use.
@@ -233,11 +234,12 @@ const App: FC = () => {
     
     const renderView = () => {
         switch (currentView) {
+            case 'MAP': return <MapView />;
             case 'CLIENT_SETUP': return <ClientSetupView />;
             case 'AUDIT': return <AuditView />;
             case 'PROFILES': return <ProfilesView />;
             case 'TOOLS': return <ToolsView />;
-            default: return <ClientSetupView />;
+            default: return <MapView />;
         }
     };
 

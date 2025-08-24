@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 :root {
   --primary-dark: #1A2B44;
   --primary-accent: #A6CE39;
@@ -23,6 +25,8 @@ body {
   background-color: var(--primary-light);
   color: var(--text-dark);
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -38,6 +42,17 @@ body {
   max-width: 1200px;
   padding: 0 20px 40px;
 }
+
+/* Grand Logo Animation */
+@keyframes grandGlow {
+  0%, 100% {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 6px 15px rgba(166, 206, 57, 0.4));
+  }
+}
+
 
 /* Offline Banner */
 .offline-banner {
@@ -80,9 +95,11 @@ body {
 }
 
 .header-logo {
-  height: 45px; /* Adjusted size for prominence */
+  height: 80px; /* Huge: Increased size */
   width: auto;
   display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); /* Grand: Added depth */
+  transition: filter 0.3s ease;
 }
 
 
@@ -1286,8 +1303,11 @@ h1, h2, h3, h4 {
 }
 
 .login-box .header-logo {
-  height: 80px;
+  height: auto;
+  width: 350px;
+  max-width: 90%;
   margin-bottom: 1.5rem;
+  animation: grandGlow 4s ease-in-out infinite;
 }
 
 .login-box h1 {
@@ -1336,7 +1356,10 @@ h1, h2, h3, h4 {
 }
 
 .loading-screen .header-logo {
-    height: 80px;
+    height: auto;
+    width: 350px;
+    max-width: 90%;
+    animation: grandGlow 4s ease-in-out infinite;
 }
 
 /* Responsive */
