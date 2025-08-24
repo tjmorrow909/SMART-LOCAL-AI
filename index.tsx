@@ -5,7 +5,7 @@ import { auth, signInWithGoogle, signOut, type User, firebaseError } from './fir
 import { MapView } from './MapView';
 
 // --- Type Definitions ---
-type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP';
+type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP' | 'SERVICES';
 interface Business {
     name: string;
     website?: string;
@@ -42,6 +42,7 @@ const LoginView: FC = () => (
 const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => void; onSignOut: () => void; }> = ({ user, currentView, setView, onSignOut }) => {
     const views: { id: View; label: string }[] = [
         { id: 'MAP', label: 'Map View' },
+        { id: 'SERVICES', label: 'Service Packages' },
         { id: 'CLIENT_SETUP', label: 'Client Setup' },
         { id: 'AUDIT', label: 'Run Audit' },
         { id: 'PROFILES', label: 'Profiles' },
@@ -96,7 +97,7 @@ const OfflineBanner: FC = () => {
     );
 };
 
-// --- View Components (Placeholders) ---
+// --- View Components (Placeholders & Features) ---
 
 const ClientSetupView: FC = () => (
     <div className="view-container client-setup-view">
@@ -221,6 +222,79 @@ const ToolsView: FC = () => (
     </div>
 );
 
+const ServicesView: FC = () => {
+    const [expandedCard, setExpandedCard] = useState<string | null>(null);
+
+    const handleCardClick = (cardId: string) => {
+        setExpandedCard(expandedCard === cardId ? null : cardId);
+    };
+
+    const packages = [
+        {
+            id: 'starter',
+            name: 'Local SEO Starter',
+            price: '$499/mo',
+            description: 'Essential local SEO to get your business on the map and ranking.',
+            features: [
+                'Google Business Profile Optimization',
+                'Local Keyword Research (10 keywords)',
+                'On-Page SEO for 5 Pages',
+                'Monthly Performance Report',
+                'Basic Citation Building (20 listings)',
+            ],
+        },
+        {
+            id: 'growth',
+            name: 'Business Growth Pro',
+            price: '$999/mo',
+            description: 'A comprehensive package for businesses ready to dominate local search.',
+            features: [
+                'All features from Starter Plan',
+                'Advanced Schema Markup',
+                'Content Creation (2 Articles/mo)',
+                'Local Link Building Campaign',
+                'Quarterly Strategy Review',
+            ],
+        },
+        {
+            id: 'ultimate',
+            name: 'Ultimate Presence',
+            price: '$1999/mo',
+            description: 'The ultimate solution for market leaders who want maximum visibility.',
+            features: [
+                'All features from Growth Pro Plan',
+                'Reputation Management & Review Generation',
+                'Social Media Signal Integration',
+                'Hyperlocal Content Strategy',
+                'Dedicated Account Manager',
+            ],
+        },
+    ];
+
+    return (
+        <div className="view-container">
+            <h2>Our Service Packages</h2>
+            <p style={{textAlign: 'center', maxWidth: '600px', margin: '0 auto 2rem'}}>Choose a package that fits your goals. Click on any package to see the full list of features.</p>
+            <div className="services-grid">
+                {packages.map(pkg => (
+                    <div className="service-card" key={pkg.id} onClick={() => handleCardClick(pkg.id)} tabIndex={0} role="button" aria-expanded={expandedCard === pkg.id}>
+                        <div className="service-header">
+                            <h3>{pkg.name}</h3>
+                            <p className="service-price">{pkg.price}</p>
+                            <p>{pkg.description}</p>
+                        </div>
+                        <div className={`service-details ${expandedCard === pkg.id ? 'expanded' : ''}`}>
+                            <ul>
+                                {pkg.features.map((feature, index) => <li key={index}>{feature}</li>)}
+                            </ul>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 
@@ -275,6 +349,7 @@ const App: FC = () => {
     const renderView = () => {
         switch (currentView) {
             case 'MAP': return <MapView onStartAudit={handleStartAudit} />;
+            case 'SERVICES': return <ServicesView />;
             case 'CLIENT_SETUP': return <ClientSetupView />;
             case 'AUDIT': return <AuditView business={auditTarget} />;
             case 'PROFILES': return <ProfilesView />;
