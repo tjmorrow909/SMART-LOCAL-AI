@@ -79,7 +79,7 @@ interface MapViewProps {
 
 // --- Constants ---
 // Using the API key from the firebase config.
-const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
+const MAPS_API_KEY = "AIzaSyBTf0OGbLalPgPbeBF0wpliSRwZH_k9gMI";
 
 
 // --- Helper Components ---
