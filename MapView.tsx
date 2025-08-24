@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useRef, type FC, type FormEvent } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
-import { functions } from './firebase';
 
 // --- Google Maps Type Declarations ---
 // This is necessary because the script is loaded dynamically and TypeScript
@@ -170,56 +170,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
 
     }, [mapApiKey, isApiReady]);
 
-    const handleFindDetails = async (name: string, address: string) => {
-        // Find elements within the currently open InfoWindow
-        const detailsContainer = document.getElementById('ai-details-container');
-        const findButton = document.querySelector('.btn-find-details') as HTMLButtonElement;
-
-        if (!detailsContainer || !findButton || !functions) {
-            console.error("Required elements or firebase functions not found for AI details search.");
-            if (detailsContainer) detailsContainer.innerHTML = `<p class="error-text">An unexpected error occurred.</p>`;
-            return;
-        }
-
-        findButton.disabled = true;
-        detailsContainer.innerHTML = '<div class="loading-spinner small"></div>';
-        
-        try {
-            const geminiProxy = functions.httpsCallable('geminiProxy');
-            const prompt = `For the business named "${name}" near "${address}", find detailed information and return it as a JSON object. The JSON should include keys like "fullAddress", "phone", "website", and "hours". If you cannot find specific information, omit the key or set its value to null. If you cannot find the business at all, return an empty JSON object.`;
-            
-            const response = await geminiProxy({
-                action: 'generateContent',
-                params: {
-                    model: 'gemini-2.5-flash',
-                    contents: prompt,
-                    config: {
-                        responseMimeType: 'application/json',
-                    }
-                }
-            });
-
-            let resultText = (response.data as any).text || '{}';
-            
-            // Clean up Gemini's response (remove markdown code fences)
-            resultText = resultText.replace(/^```json\s*|```$/g, '').trim();
-
-            const parsedJson = JSON.parse(resultText);
-
-            if (Object.keys(parsedJson).length === 0) {
-                 detailsContainer.innerHTML = `<p class="error-text">No details found for this business.</p>`;
-            } else {
-                const formattedJson = JSON.stringify(parsedJson, null, 2);
-                detailsContainer.innerHTML = `<pre>${formattedJson}</pre>`;
-            }
-
-        } catch (err) {
-            console.error("Error finding business details:", err);
-            detailsContainer.innerHTML = `<p class="error-text">AI failed to fetch details. Please try again.</p>`;
-        }
-    };
-
-
     const initMap = (google: typeof window.google) => {
         if (!mapRef.current || !searchInputRef.current) return;
 
@@ -269,15 +219,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
                     }
                     return;
                 }
-
-                const detailsButton = target.closest('.btn-find-details');
-                if (detailsButton && !(detailsButton as HTMLButtonElement).disabled) {
-                    const name = detailsButton.getAttribute('data-name');
-                    const address = detailsButton.getAttribute('data-address');
-                    if (name && address) {
-                        handleFindDetails(decodeURIComponent(name), decodeURIComponent(address));
-                    }
-                }
             });
         });
     };
@@ -322,19 +263,14 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
                 const website = place.website ?? '';
                 const encodedName = encodeURIComponent(place.name!);
                 const encodedWebsite = encodeURIComponent(website);
-                const encodedAddress = encodeURIComponent(place.formatted_address || place.name!);
 
                 const content = `
                     <div class="map-infowindow-content">
                         <h4>${place.name}</h4>
                         <p>${place.formatted_address || ''}</p>
-                        ${website ? `<a href="${website}" target="_blank" rel="noopener noreferrer">Visit Website</a>` : ''}
-                        <div class="map-infowindow-buttons">
-                            <a href="https://www.google.com/maps/search/?api=1&query=${encodedName}&query_place_id=${place.place_id}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Google</a>
-                             <button class="btn btn-secondary btn-find-details" data-name="${encodedName}" data-address="${encodedAddress}">Find Details (AI)</button>
-                            <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start Audit</button>
+                        <div class="map-infowindow-buttons" style="margin-top: 1rem;">
+                            <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start an audit</button>
                         </div>
-                        <div class="ai-details-container" id="ai-details-container"></div>
                     </div>
                 `;
                 infoWindow.current.setContent(content);

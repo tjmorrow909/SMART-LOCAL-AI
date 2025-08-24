@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, type FC } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
@@ -233,7 +234,7 @@ const ServicesView: FC = () => {
         {
             id: 'starter',
             name: 'Local SEO Starter',
-            price: '$499/mo',
+            price: '$99',
             description: 'Essential local SEO to get your business on the map and ranking.',
             features: [
                 'Google Business Profile Optimization',
@@ -246,7 +247,7 @@ const ServicesView: FC = () => {
         {
             id: 'growth',
             name: 'Business Growth Pro',
-            price: '$999/mo',
+            price: '$299',
             description: 'A comprehensive package for businesses ready to dominate local search.',
             features: [
                 'All features from Starter Plan',
@@ -259,7 +260,7 @@ const ServicesView: FC = () => {
         {
             id: 'ultimate',
             name: 'Ultimate Presence',
-            price: '$1999/mo',
+            price: '$699+',
             description: 'The ultimate solution for market leaders who want maximum visibility.',
             features: [
                 'All features from Growth Pro Plan',
