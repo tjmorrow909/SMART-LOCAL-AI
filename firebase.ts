@@ -1,11 +1,11 @@
 // firebase.ts (for Firebase v9+ modular SDK)
 import { initializeApp } from 'firebase/app';
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics } from 'firebase/analytics';
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signOut,
+  signOut as firebaseSignOut,
   onAuthStateChanged,
   User
 } from 'firebase/auth';
@@ -17,7 +17,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
   authDomain: "smartlocalai-469603.firebaseapp.com",
   projectId: "smartlocalai-469603",
-  storageBucket: "smartlocalai-469603.firebasestorage.app",
+  storageBucket: "smartlocalai-469603.appspot.com", // <-- FIXED
   messagingSenderId: "206325636938",
   appId: "1:206325636938:web:16040b951bdfb691fbabb3",
   measurementId: "G-KZHGGD9JVP"
@@ -29,18 +29,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
 const analytics = getAnalytics(app);
-
 const provider = new GoogleAuthProvider();
 
 // --- Authentication Helpers ---
 function signInWithGoogle() {
   return signInWithPopup(auth, provider);
 }
-
-function firebaseSignOut() {
-  return signOut(auth);
-}
-
 function onAuthChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
