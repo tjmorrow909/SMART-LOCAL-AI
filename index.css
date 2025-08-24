@@ -1190,7 +1190,7 @@ h1, h2, h3, h4 {
 
 .map-infowindow-content {
     font-family: 'Poppins', sans-serif;
-    max-width: 280px;
+    max-width: 320px;
 }
 .map-infowindow-content h4 {
     margin-top: 0;
@@ -1218,7 +1218,8 @@ h1, h2, h3, h4 {
 }
 
 .map-infowindow-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 0.5rem;
     margin-top: 0.75rem;
 }
@@ -1226,10 +1227,38 @@ h1, h2, h3, h4 {
 .map-infowindow-buttons .btn,
 .map-infowindow-buttons a.btn {
     flex: 1;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    font-size: 0.85rem;
     margin-bottom: 0;
     text-align: center;
+    white-space: nowrap;
+}
+
+.ai-details-container {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    min-height: 24px;
+    text-align: left;
+}
+
+.ai-details-container pre {
+    background-color: var(--primary-light);
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+}
+
+.ai-details-container .error-text {
+    color: var(--danger);
+    font-weight: 500;
+    font-size: 0.9rem;
 }
 
 
