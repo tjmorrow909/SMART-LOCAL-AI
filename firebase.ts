@@ -1,87 +1,58 @@
-import { initializeApp, type FirebaseApp } from "firebase/app";
+// firebase.ts (for Firebase v9+ modular SDK)
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from "firebase/analytics";
 import {
-    getAuth,
-    onAuthStateChanged,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut as firebaseSignOut,
-    type User
-} from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getFunctions, type Functions } from "firebase/functions";
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User
+} from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
-// --- Configuration ---
-// Vite exposes env variables on `import.meta.env`.
-// These variables should be set in a `.env.local` file at the root of the project.
-// Example: VITE_FIREBASE_API_KEY="AIza..."
+// --- Your config object (replace with your values or .env variables) ---
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
+  authDomain: "smartlocalai-469603.firebaseapp.com",
+  projectId: "smartlocalai-469603",
+  storageBucket: "smartlocalai-469603.firebasestorage.app",
+  messagingSenderId: "206325636938",
+  appId: "1:206325636938:web:16040b951bdfb691fbabb3",
+  measurementId: "G-KZHGGD9JVP"
 };
 
-// --- Initialization ---
-let app: FirebaseApp | null = null;
-let auth: ReturnType<typeof getAuth> | null = null;
-let db: Firestore | null = null;
-let functions: Functions | null = null;
-let firebaseError: string | null = null;
+// --- Initialize Firebase ---
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const functions = getFunctions(app);
+const analytics = getAnalytics(app);
 
-// Validate configuration
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("AIzaSyXXX")) {
-    firebaseError = "Firebase API Key is not configured correctly. Please set VITE_FIREBASE_API_KEY in your .env.local file.";
-} else if (!firebaseConfig.projectId) {
-    firebaseError = "Firebase Project ID is not configured. Please set VITE_FIREBASE_PROJECT_ID in your .env.local file.";
+const provider = new GoogleAuthProvider();
+
+// --- Authentication Helpers ---
+function signInWithGoogle() {
+  return signInWithPopup(auth, provider);
 }
 
-if (!firebaseError) {
-    try {
-        app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-        functions = getFunctions(app);
-    } catch (e: any) {
-        console.error("Firebase initialization error:", e);
-        firebaseError = `Firebase initialization failed: ${e.message}. Please check your Firebase project configuration.`;
-    }
+function firebaseSignOut() {
+  return signOut(auth);
 }
 
-// --- Authentication Functions ---
-const provider = auth ? new GoogleAuthProvider() : null;
+function onAuthChange(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
 
-/**
- * Initiates Google Sign-In flow.
- */
-const signInWithGoogle = async () => {
-    if (!auth || !provider) {
-        throw new Error("Firebase Auth is not initialized. Check your Firebase configuration.");
-    }
-    // The user will be prompted to select a Google account.
-    await signInWithPopup(auth, provider);
-};
-
-/**
- * Signs out the current user.
- */
-const signOut = async () => {
-    if (!auth) {
-        throw new Error("Firebase Auth is not initialized.");
-    }
-    await firebaseSignOut(auth);
-};
-
-
-// --- Exports ---
+// --- Export everything needed ---
 export {
-    auth,
-    db,
-    functions,
-    firebaseError,
-    signInWithGoogle,
-    signOut,
-    onAuthStateChanged,
-    type User
+  auth,
+  db,
+  functions,
+  provider,
+  signInWithGoogle,
+  firebaseSignOut as signOut,
+  onAuthChange,
+  User
 };
