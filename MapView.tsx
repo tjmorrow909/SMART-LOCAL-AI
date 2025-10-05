@@ -81,7 +81,7 @@ interface MapViewProps {
 
 // --- Constants ---
 // Using the API key from environment variables, with fallback
-const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
+const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyAylaaHTNErQ5xi0wXs0IHtTPunSKOvAHg";
 
 
 // --- Helper Components ---
