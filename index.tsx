@@ -1,20 +1,43 @@
 
-import React, { useState, useEffect, type FC } from 'react';
+import React, { useState, useEffect, type FC, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { auth, signInWithGoogle, signOut, type User, firebaseError } from './firebase';
+import { auth, signInWithGoogle, signOut, type User, firebaseError, db, functions } from './firebase';
 import { MapView } from './MapView';
+import type { HttpsCallableResult, HttpsCallable } from 'firebase/functions';
+
 
 // --- Type Definitions ---
-type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP' | 'SERVICES';
+type View = 'CLIENT_SETUP' | 'AUDIT' | 'PROFILES' | 'TOOLS' | 'MAP' | 'SERVICES' | 'PROFILE_DETAIL';
+
 interface Business {
+    id?: string; // Client's Firestore document ID
     name: string;
     website?: string;
+}
+
+interface Profile extends Business {
+    id: string;
+    notes?: string;
+    consultant_uid: string;
+    createdAt: { toDate: () => Date }; // Firestore Timestamp
+}
+
+interface Audit {
+    id: string;
+    ai_report: string;
+    date_completed: { toDate: () => Date };
 }
 
 
 // --- Logo ---
 const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
+
+// --- Gemini API Proxy ---
+let geminiProxy: HttpsCallable<{ action: string; params: any }, { text: string }> | null = null;
+if (functions) {
+    geminiProxy = functions.httpsCallable('geminiProxy');
+}
 
 
 // --- Core Components ---
@@ -45,7 +68,6 @@ const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => vo
         { id: 'MAP', label: 'Map View' },
         { id: 'SERVICES', label: 'Service Packages' },
         { id: 'CLIENT_SETUP', label: 'Client Setup' },
-        { id: 'AUDIT', label: 'Run Audit' },
         { id: 'PROFILES', label: 'Profiles' },
         { id: 'TOOLS', label: 'AI Tools' },
     ];
@@ -56,16 +78,19 @@ const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => vo
                 <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
             </div>
             <nav className="app-nav">
-                {views.map(view => (
-                    <button
-                        key={view.id}
-                        className={`nav-button ${currentView === view.id ? 'active' : ''}`}
-                        onClick={() => setView(view.id)}
-                        aria-current={currentView === view.id ? 'page' : undefined}
-                    >
-                        {view.label}
-                    </button>
-                ))}
+                {views.map(view => {
+                    const isActive = currentView === view.id || (currentView === 'PROFILE_DETAIL' && view.id === 'PROFILES');
+                    return (
+                        <button
+                            key={view.id}
+                            className={`nav-button ${isActive ? 'active' : ''}`}
+                            onClick={() => setView(view.id)}
+                            aria-current={isActive ? 'page' : undefined}
+                        >
+                            {view.label}
+                        </button>
+                    );
+                })}
             </nav>
             <div className="header-user-info">
                 <img src={user.photoURL ?? undefined} alt={user.displayName ?? 'User'} />
@@ -100,42 +125,128 @@ const OfflineBanner: FC = () => {
 
 // --- View Components (Placeholders & Features) ---
 
-const ClientSetupView: FC = () => (
-    <div className="view-container client-setup-view">
-        <div className="client-setup-header">
-            <h2>Client Onboarding Notepad</h2>
-            <p>Use this space to jot down initial notes, goals, and key information about your new client. This context will power AI-driven strategies and reports.</p>
-        </div>
-        <div className="client-setup-layout">
-            <div className="notepad-container">
-                <textarea className="notepad-textarea" rows={15} placeholder="Start typing client notes here... e.g., business name, website, target audience, primary goals for local SEO, main competitors, etc."></textarea>
-                <div className="notepad-actions">
-                    <button className="btn btn-primary">Save Notes & Create Profile</button>
+const ClientSetupView: FC<{ onCreateProfile: (data: { name: string; website?: string; notes?: string }) => Promise<void> }> = ({ onCreateProfile }) => {
+    const [name, setName] = useState('');
+    const [website, setWebsite] = useState('');
+    const [notes, setNotes] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            alert('Business Name is required.');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await onCreateProfile({ name, website, notes });
+            setName('');
+            setWebsite('');
+            setNotes('');
+        } catch (error) {
+            console.error("Failed to save profile:", error);
+            alert("Failed to save profile. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="view-container client-setup-view">
+            <div className="client-setup-header">
+                <h2>Client Onboarding</h2>
+                <p>Enter your new client's information. This will create a profile to track audits and AI-generated content.</p>
+            </div>
+            <div className="client-setup-layout">
+                <div className="notepad-container" style={{ gap: '1rem', textAlign: 'left' }}>
+                     <div className="form-group">
+                        <label htmlFor="client-name">Business Name</label>
+                        <input id="client-name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Joe's Pizza Downtown" />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="client-website">Website URL</label>
+                        <input id="client-website" type="url" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://www.joespizzadt.com" />
+                    </div>
+                     <div className="form-group">
+                        <label htmlFor="client-notes">Onboarding Notes</label>
+                        <textarea id="client-notes" className="notepad-textarea" rows={10} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., target audience, primary goals for local SEO, main competitors, etc."></textarea>
+                    </div>
+                    <div className="notepad-actions">
+                        <button className="btn btn-primary" onClick={handleSave} disabled={isSaving || !name.trim()}>
+                            {isSaving ? 'Saving...' : 'Create Profile'}
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div className="key-questions-panel">
-                <h3>Key Questions to Ask</h3>
-                <ul>
-                    <li>What are your business goals?</li>
-                    <li>Who is your target audience?</li>
-                    <li>What services do you offer?</li>
-                    <li>Who are your main competitors?</li>
-                    <li>What is your service area?</li>
-                    <li>What makes your business unique?</li>
-                </ul>
-            </div>
         </div>
-    </div>
-);
+    );
+};
 
-const AuditView: FC<{ business?: Business }> = ({ business }) => {
+const AuditView: FC<{ business?: Business; onSaveAudit: (report: string, clientId: string) => Promise<void>; }> = ({ business, onSaveAudit }) => {
     const [businessName, setBusinessName] = useState(business?.name || '');
     const [websiteUrl, setWebsiteUrl] = useState(business?.website || '');
+    const [report, setReport] = useState('');
+    const [isAuditing, setIsAuditing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
     useEffect(() => {
         setBusinessName(business?.name || '');
         setWebsiteUrl(business?.website || '');
+        setReport('');
+        setError(null);
+        setSaveSuccess(false);
+        setIsSaving(false);
     }, [business]);
+
+    const handleStartAudit = async () => {
+        if (!businessName.trim()) {
+            alert('Business Name is required to run an audit.');
+            return;
+        }
+        if (!geminiProxy) {
+            setError("AI functionality is not available. Please check your configuration.");
+            return;
+        }
+        
+        setIsAuditing(true);
+        setError(null);
+        setReport('');
+        
+        const prompt = `Please perform a comprehensive local SEO and online presence audit for the following business. Provide a summary, key findings, and actionable recommendations.\n\nBusiness Name: ${businessName}\nWebsite: ${websiteUrl || 'Not provided'}\n\nThe audit should cover:\n1.  **Google Business Profile:** Potential optimizations, completeness, photo quality, reviews, Q&A.\n2.  **On-Page SEO:** Website mobile-friendliness, page speed insights (conceptual), local keyword targeting, NAP consistency.\n3.  **Local Citations & Listings:** Importance of consistent NAP across major directories.\n4.  **Online Reviews:** Reputation analysis, strategy for getting more reviews.\n5.  **Social Media Presence:** Brief check of relevant social media channels for activity and engagement.\n\nFormat the output as clean, well-structured markdown. Use headings, bold text, and bullet points to make it easy to read.`;
+
+        try {
+            const result = await geminiProxy({
+                action: 'generateContent',
+                params: {
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
+                }
+            });
+            setReport(result.data.text);
+        } catch (e: any) {
+            console.error("Audit generation failed:", e);
+            setError(`Failed to generate audit: ${e.message || 'An unknown error occurred.'}`);
+        } finally {
+            setIsAuditing(false);
+        }
+    };
+    
+    const handleSaveAuditReport = async () => {
+        if (!report || !business?.id) return;
+        setIsSaving(true);
+        setSaveSuccess(false);
+        setError(null);
+        try {
+            await onSaveAudit(report, business.id);
+            setSaveSuccess(true);
+        } catch (err) {
+            console.error("Failed to save audit report:", err);
+            setError("Failed to save the report. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="view-container">
@@ -161,67 +272,271 @@ const AuditView: FC<{ business?: Business }> = ({ business }) => {
                         onChange={(e) => setWebsiteUrl(e.target.value)}
                     />
                 </div>
-                <button className="btn btn-primary">Start AI Audit</button>
+                <button className="btn btn-primary" onClick={handleStartAudit} disabled={isAuditing || !businessName}>
+                     {isAuditing ? 'Generating Report...' : 'Start AI Audit'}
+                </button>
             </div>
-            <div className="audit-placeholder">
-                <p>Your audit report will appear here once generated.</p>
+            <div className={`result-container ${report ? 'has-content' : ''} ${error ? 'error' : ''}`}>
+                {isAuditing && <div className="loading-spinner small"></div>}
+                {error && <p>{error}</p>}
+                {report ? (
+                    <p>{report}</p>
+                ) : !isAuditing && (
+                    <div className="audit-placeholder">
+                        <p>Your audit report will appear here once generated.</p>
+                    </div>
+                )}
+            </div>
+             {report && (
+                <div className="audit-actions">
+                    {business?.id ? (
+                        <button className="btn btn-primary" onClick={handleSaveAuditReport} disabled={isSaving || saveSuccess}>
+                            {isSaving ? 'Saving...' : saveSuccess ? '✓ Report Saved' : 'Save Report to Profile'}
+                        </button>
+                    ) : (
+                        <div className="audit-actions-note">
+                            <p>To save this report, first create a client profile from the 'Client Setup' tab and run the audit from the 'Profiles' view.</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ProfilesView: FC<{ profiles: Profile[]; onSelectProfile: (profile: Profile) => void; loading: boolean; }> = ({ profiles, onSelectProfile, loading }) => {
+    
+    if (loading) {
+        return (
+            <div className="view-container profiles-view-container">
+                <h2>Client Profiles</h2>
+                <div className="loading-spinner"></div>
+            </div>
+        );
+    }
+    
+    if (profiles.length === 0) {
+        return (
+            <div className="view-container profiles-view-container">
+                <h2>Client Profiles</h2>
+                <div className="no-profiles-message">
+                    <p>You haven't created any client profiles yet.</p>
+                    <p>Go to the 'Client Setup' tab to add your first client.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="view-container profiles-view-container">
+            <h2>Client Profiles</h2>
+            <div className="profiles-grid">
+                {profiles.map(profile => (
+                    <div key={profile.id} className="profile-card" tabIndex={0} onClick={() => onSelectProfile(profile)} onKeyDown={(e) => e.key === 'Enter' && onSelectProfile(profile)}>
+                        <h3>{profile.name}</h3>
+                        {profile.website && <a href={profile.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{profile.website}</a>}
+                        <div className="profile-footer">
+                            <span className="date-info">Created: {new Date(profile.createdAt?.toDate()).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );
 };
 
-const ProfilesView: FC = () => (
-    <div className="view-container profiles-view-container">
-        <h2>Client Profiles</h2>
-        <div className="no-profiles-message">
-            <p>You haven't created any client profiles yet.</p>
-            <p>Go to the 'Client Setup' tab to add your first client.</p>
-        </div>
-    </div>
-);
+const ProfileDetailView: FC<{
+    profile: Profile;
+    onBack: () => void;
+    onRunAudit: (profile: Profile) => void;
+}> = ({ profile, onBack, onRunAudit }) => {
+    const [audits, setAudits] = useState<Audit[]>([]);
+    const [loadingAudits, setLoadingAudits] = useState(true);
+    const [selectedAudit, setSelectedAudit] = useState<string | null>(null);
 
-const ToolsView: FC = () => (
-    <div className="view-container">
-        <h2>AI Content Tools</h2>
-        <div className="tools-grid">
-            <div className="tool-card">
-                <h3>Google Business Profile Post</h3>
-                <div className="form-group">
-                    <label htmlFor="post-topic">Topic</label>
-                    <input type="text" id="post-topic" placeholder="e.g., New weekly special, upcoming event" />
-                </div>
-                 <div className="form-group">
-                    <label htmlFor="post-tone">Tone of Voice</label>
-                    <select id="post-tone">
-                        <option>Friendly</option>
-                        <option>Professional</option>
-                        <option>Excited</option>
-                        <option>Informative</option>
-                    </select>
-                </div>
-                <button className="btn btn-primary">Generate Post</button>
-                <div className="result-container">
-                   {/* AI generated content appears here */}
+    useEffect(() => {
+        const fetchAudits = async () => {
+            if (!db) return;
+            setLoadingAudits(true);
+            try {
+                const q = db.collection('audits').where('client_id', '==', profile.id).orderBy('date_completed', 'desc');
+                const querySnapshot = await q.get();
+                const auditData = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                } as Audit));
+                setAudits(auditData);
+            } catch (error) {
+                console.error("Error fetching audits: ", error);
+            } finally {
+                setLoadingAudits(false);
+            }
+        };
+
+        fetchAudits();
+    }, [profile.id]);
+
+    const toggleAudit = (auditId: string) => {
+        setSelectedAudit(selectedAudit === auditId ? null : auditId);
+    };
+
+    return (
+        <div className="view-container profile-detail-view">
+            <div className="profile-detail-header">
+                <button className="btn-back" onClick={onBack}>&larr; Back to Profiles</button>
+                <div className="profile-detail-actions">
+                     <button className="btn btn-primary" onClick={() => onRunAudit(profile)}>Run New Audit</button>
                 </div>
             </div>
-            <div className="tool-card">
-                <h3>Local SEO Keyword Ideas</h3>
-                 <div className="form-group">
-                    <label htmlFor="keyword-service">Service/Product</label>
-                    <input type="text" id="keyword-service" placeholder="e.g., residential plumbing, artisan coffee" />
+
+            <div className="profile-detail-info">
+                <h2>{profile.name}</h2>
+                {profile.website && <a href={profile.website} target="_blank" rel="noopener noreferrer">{profile.website}</a>}
+                {profile.notes && <p className="profile-notes">{profile.notes}</p>}
+            </div>
+
+            <div className="profile-audits-section">
+                <h3>Audit History</h3>
+                {loadingAudits ? (
+                    <div className="loading-spinner"></div>
+                ) : audits.length === 0 ? (
+                    <p>No audits found for this client yet.</p>
+                ) : (
+                    <div className="audits-list">
+                        {audits.map(audit => (
+                            <div key={audit.id} className="audit-item-card">
+                                <div className="audit-item-header" onClick={() => toggleAudit(audit.id)} tabIndex={0} onKeyDown={e => e.key === 'Enter' && toggleAudit(audit.id)} role="button" aria-expanded={selectedAudit === audit.id}>
+                                    <span>Audit from {new Date(audit.date_completed.toDate()).toLocaleString()}</span>
+                                    <span>{selectedAudit === audit.id ? 'Hide Report ▲' : 'View Report ▼'}</span>
+                                </div>
+                                {selectedAudit === audit.id && (
+                                     <div className="audit-item-body">
+                                        <pre>{audit.ai_report}</pre>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const ToolsView: FC = () => {
+    // State for GBP Post tool
+    const [postTopic, setPostTopic] = useState('');
+    const [postTone, setPostTone] = useState('Friendly');
+    const [postResult, setPostResult] = useState('');
+    const [isGeneratingPost, setIsGeneratingPost] = useState(false);
+    const [postError, setPostError] = useState<string | null>(null);
+
+    // State for Keyword Ideas tool
+    const [keywordService, setKeywordService] = useState('');
+    const [keywordLocation, setKeywordLocation] = useState('');
+    const [keywordResult, setKeywordResult] = useState('');
+    const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
+    const [keywordError, setKeywordError] = useState<string | null>(null);
+
+    const handleGeneratePost = async () => {
+        if (!postTopic.trim()) return;
+        if (!geminiProxy) { setPostError("AI is unavailable"); return; }
+        
+        setIsGeneratingPost(true);
+        setPostError(null);
+        setPostResult('');
+        
+        const prompt = `Generate a short, engaging Google Business Profile post about "${postTopic}". The tone of voice should be ${postTone}. Include relevant hashtags.`;
+        
+        try {
+            const result = await geminiProxy({
+                action: 'generateContent',
+                params: { model: 'gemini-2.5-flash', contents: prompt }
+            });
+            setPostResult(result.data.text);
+        } catch(e: any) {
+            console.error("Post generation failed:", e);
+            setPostError(e.message || "Failed to generate post.");
+        } finally {
+            setIsGeneratingPost(false);
+        }
+    };
+    
+    const handleGetIdeas = async () => {
+        if (!keywordService.trim() || !keywordLocation.trim()) return;
+        if (!geminiProxy) { setKeywordError("AI is unavailable"); return; }
+        
+        setIsGeneratingKeywords(true);
+        setKeywordError(null);
+        setKeywordResult('');
+        
+        const prompt = `Generate a list of local SEO keyword ideas for a business that offers "${keywordService}" in "${keywordLocation}". Include a mix of short-tail, long-tail, and question-based keywords.`;
+        
+        try {
+            const result = await geminiProxy({
+                action: 'generateContent',
+                params: { model: 'gemini-2.5-flash', contents: prompt }
+            });
+            setKeywordResult(result.data.text);
+        } catch(e: any) {
+            console.error("Keyword idea generation failed:", e);
+            setKeywordError(e.message || "Failed to get ideas.");
+        } finally {
+            setIsGeneratingKeywords(false);
+        }
+    };
+
+    return (
+        <div className="view-container">
+            <h2>AI Content Tools</h2>
+            <div className="tools-grid">
+                <div className="tool-card">
+                    <h3>Google Business Profile Post</h3>
+                    <div className="form-group">
+                        <label htmlFor="post-topic">Topic</label>
+                        <input type="text" id="post-topic" placeholder="e.g., New weekly special, upcoming event" value={postTopic} onChange={e => setPostTopic(e.target.value)} />
+                    </div>
+                     <div className="form-group">
+                        <label htmlFor="post-tone">Tone of Voice</label>
+                        <select id="post-tone" value={postTone} onChange={e => setPostTone(e.target.value)}>
+                            <option>Friendly</option>
+                            <option>Professional</option>
+                            <option>Excited</option>
+                            <option>Informative</option>
+                        </select>
+                    </div>
+                    <button className="btn btn-primary" onClick={handleGeneratePost} disabled={isGeneratingPost || !postTopic.trim()}>
+                        {isGeneratingPost ? 'Generating...' : 'Generate Post'}
+                    </button>
+                    <div className={`result-container ${postResult ? 'has-content' : ''} ${postError ? 'error' : ''}`}>
+                       {isGeneratingPost && <div className="loading-spinner small"></div>}
+                       {postError && <p>{postError}</p>}
+                       {postResult && <p>{postResult}</p>}
+                    </div>
                 </div>
-                 <div className="form-group">
-                    <label htmlFor="keyword-location">Location</label>
-                    <input type="text" id="keyword-location" placeholder="e.g., San Francisco" />
-                </div>
-                <button className="btn btn-primary">Get Ideas</button>
-                 <div className="result-container">
-                     {/* AI generated content appears here */}
+                <div className="tool-card">
+                    <h3>Local SEO Keyword Ideas</h3>
+                     <div className="form-group">
+                        <label htmlFor="keyword-service">Service/Product</label>
+                        <input type="text" id="keyword-service" placeholder="e.g., residential plumbing, artisan coffee" value={keywordService} onChange={e => setKeywordService(e.target.value)} />
+                    </div>
+                     <div className="form-group">
+                        <label htmlFor="keyword-location">Location</label>
+                        <input type="text" id="keyword-location" placeholder="e.g., San Francisco" value={keywordLocation} onChange={e => setKeywordLocation(e.target.value)} />
+                    </div>
+                    <button className="btn btn-primary" onClick={handleGetIdeas} disabled={isGeneratingKeywords || !keywordService.trim() || !keywordLocation.trim()}>
+                        {isGeneratingKeywords ? 'Generating...' : 'Get Ideas'}
+                    </button>
+                     <div className={`result-container ${keywordResult ? 'has-content' : ''} ${keywordError ? 'error' : ''}`}>
+                         {isGeneratingKeywords && <div className="loading-spinner small"></div>}
+                         {keywordError && <p>{keywordError}</p>}
+                         {keywordResult && <p>{keywordResult}</p>}
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const ServicesView: FC = () => {
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
@@ -304,6 +619,31 @@ const App: FC = () => {
     const [loading, setLoading] = useState(true);
     const [currentView, setView] = useState<View>('MAP');
     const [auditTarget, setAuditTarget] = useState<Business | undefined>();
+    const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [profilesLoading, setProfilesLoading] = useState(true);
+    const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+
+    const fetchProfiles = useCallback(async (currentUser: User | null) => {
+        if (!currentUser || !db) {
+            setProfiles([]);
+            setProfilesLoading(false);
+            return;
+        }
+        setProfilesLoading(true);
+        try {
+            const q = db.collection('clients').where('consultant_uid', '==', currentUser.uid).orderBy('createdAt', 'desc');
+            const querySnapshot = await q.get();
+            const profilesData = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            } as Profile));
+            setProfiles(profilesData);
+        } catch (error) {
+            console.error("Error fetching profiles: ", error);
+        } finally {
+            setProfilesLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         if (!auth) {
@@ -312,22 +652,55 @@ const App: FC = () => {
         }
         const unsubscribe = auth.onAuthStateChanged((currentUser) => {
             setUser(currentUser);
+            fetchProfiles(currentUser);
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, [fetchProfiles]);
     
-    const handleStartAudit = (business: Business) => {
+    const handleStartAudit = (business: { name: string; website?: string }) => {
         setAuditTarget(business);
         setView('AUDIT');
     };
 
     const handleViewChange = (view: View) => {
-        // Clear the audit target if we navigate away from the audit view manually
         if (view !== 'AUDIT') {
             setAuditTarget(undefined);
         }
+        if (view !== 'PROFILE_DETAIL') {
+            setSelectedProfile(null);
+        }
         setView(view);
+    };
+
+    const handleCreateProfile = async (profileData: { name: string; website?: string; notes?: string }) => {
+        if (!user || !db) throw new Error("User not signed in or DB not available");
+
+        await db.collection('clients').add({
+            ...profileData,
+            consultant_uid: user.uid,
+            createdAt: new Date(),
+        });
+        await fetchProfiles(user);
+        setView('PROFILES');
+    };
+    
+    const handleSelectProfile = (profile: Profile) => {
+        setSelectedProfile(profile);
+        setView('PROFILE_DETAIL');
+    };
+
+    const handleSaveAudit = async (report: string, clientId: string) => {
+        if (!user || !db) {
+            throw new Error("User not signed in or DB not available");
+        }
+        await db.collection('audits').add({
+            client_id: clientId,
+            consultant_uid: user.uid,
+            status: "complete",
+            ai_report: report,
+            date_completed: new Date(),
+        });
     };
 
     if (firebaseError) {
@@ -351,9 +724,22 @@ const App: FC = () => {
         switch (currentView) {
             case 'MAP': return <MapView onStartAudit={handleStartAudit} />;
             case 'SERVICES': return <ServicesView />;
-            case 'CLIENT_SETUP': return <ClientSetupView />;
-            case 'AUDIT': return <AuditView business={auditTarget} />;
-            case 'PROFILES': return <ProfilesView />;
+            case 'CLIENT_SETUP': return <ClientSetupView onCreateProfile={handleCreateProfile} />;
+            case 'AUDIT': return <AuditView business={auditTarget} onSaveAudit={handleSaveAudit} />;
+            case 'PROFILES': return <ProfilesView profiles={profiles} onSelectProfile={handleSelectProfile} loading={profilesLoading} />;
+            case 'PROFILE_DETAIL':
+                return selectedProfile ? (
+                    <ProfileDetailView
+                        profile={selectedProfile}
+                        onBack={() => setView('PROFILES')}
+                        onRunAudit={(profile) => {
+                            setAuditTarget(profile);
+                            setView('AUDIT');
+                        }}
+                    />
+                ) : (
+                    <ProfilesView profiles={profiles} onSelectProfile={handleSelectProfile} loading={profilesLoading} />
+                );
             case 'TOOLS': return <ToolsView />;
             default: return <MapView onStartAudit={handleStartAudit} />;
         }

@@ -55,14 +55,15 @@ if (!firebaseError) {
 const provider = auth ? new firebase.auth.GoogleAuthProvider() : null;
 
 /**
- * Initiates Google Sign-In flow.
+ * Initiates Google Sign-In flow using redirect. This is more robust against
+ * popup blockers and certain browser security policies like COOP.
  */
 const signInWithGoogle = async () => {
     if (!auth || !provider) {
         throw new Error("Firebase Auth is not initialized. Check your Firebase configuration.");
     }
-    // The user will be prompted to select a Google account.
-    await auth.signInWithPopup(provider);
+    // The user will be redirected to the Google sign-in page.
+    await auth.signInWithRedirect(provider);
 };
 
 /**

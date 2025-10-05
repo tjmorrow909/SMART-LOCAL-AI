@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef, type FC } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
 
@@ -79,7 +81,7 @@ interface MapViewProps {
 
 // --- Constants ---
 // Using the API key from the firebase config.
-const MAPS_API_KEY = "AIzaSyBTf0OGbLalPgPbeBF0wpliSRwZH_k9gMI";
+const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
 
 
 // --- Helper Components ---
