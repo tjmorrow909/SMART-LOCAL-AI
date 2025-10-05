@@ -658,6 +658,18 @@ const App: FC = () => {
         return () => unsubscribe();
     }, [fetchProfiles]);
     
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('Service Worker registered: ', registration);
+                }).catch(registrationError => {
+                    console.log('Service Worker registration failed: ', registrationError);
+                });
+            });
+        }
+    }, []);
+
     const handleStartAudit = (business: { name: string; website?: string }) => {
         setAuditTarget(business);
         setView('AUDIT');
