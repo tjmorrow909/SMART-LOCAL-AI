@@ -12,13 +12,13 @@ export type User = firebase.User;
 // These variables should be set in a `.env.local` file at the root of the project.
 // Example: VITE_FIREBASE_API_KEY="AIza..."
 const firebaseConfig = {
-  apiKey: "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
-  authDomain: "smartlocalai-469603.firebaseapp.com",
-  projectId: "smartlocalai-469603",
-  storageBucket: "smartlocalai-469603.firebasestorage.app",
-  messagingSenderId: "206325636938",
-  appId: "1:206325636938:web:16040b951bdfb691fbabb3",
-  measurementId: "G-KZHGGD9JVP"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "smartlocalai-469603.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "smartlocalai-469603",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "smartlocalai-469603.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "206325636938",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:206325636938:web:16040b951bdfb691fbabb3",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-KZHGGD9JVP"
 };
 
 // --- Initialization ---

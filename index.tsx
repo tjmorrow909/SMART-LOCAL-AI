@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { auth, signInWithGoogle, signOut, type User, firebaseError, db, functions } from './firebase';
 import { MapView } from './MapView';
-import type { HttpsCallableResult, HttpsCallable } from 'firebase/functions';
+import type { HttpsCallableResult } from 'firebase/functions';
 
 
 // --- Type Definitions ---
@@ -34,7 +34,7 @@ interface Audit {
 const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
 
 // --- Gemini API Proxy ---
-let geminiProxy: HttpsCallable<{ action: string; params: any }, { text: string }> | null = null;
+let geminiProxy: any = null;
 if (functions) {
     geminiProxy = functions.httpsCallable('geminiProxy');
 }
