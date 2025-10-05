@@ -12,13 +12,13 @@ export type User = firebase.User;
 // These variables should be set in a `.env.local` file at the root of the project.
 // Example: VITE_FIREBASE_API_KEY="AIza..."
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "smartlocalai-469603.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "smartlocalai-469603",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "smartlocalai-469603.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "206325636938",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:206325636938:web:16040b951bdfb691fbabb3",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-KZHGGD9JVP"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAylaaHTNErQ5xi0wXs0IHtTPunSKOvAHg",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "smartlocalai-470220.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "smartlocalai-470220",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "smartlocalai-470220.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "388512791209",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:388512791209:web:9f784d1d0334c21ea547b8",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-WR2DYTW3K9"
 };
 
 // --- Initialization ---
@@ -29,10 +29,12 @@ let functions: firebase.functions.Functions | null = null;
 let firebaseError: string | null = null;
 
 // Validate configuration
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("xxxxxxxxxx")) {
-    firebaseError = "Firebase API Key is not configured correctly. Please set VITE_FIREBASE_API_KEY in your environment.";
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("placeholder") || firebaseConfig.apiKey.includes("your_")) {
+    firebaseError = "🔥 Firebase API Key is not configured. Please:\n\n1. Go to https://console.firebase.google.com/\n2. Select project: smartlocalai-470220\n3. Go to Project Settings > General\n4. Copy your Web App config\n5. Update VITE_FIREBASE_API_KEY in .env.local";
 } else if (!firebaseConfig.projectId) {
     firebaseError = "Firebase Project ID is not configured. Please set VITE_FIREBASE_PROJECT_ID in your environment.";
+} else if (firebaseConfig.appId.includes("placeholder") || firebaseConfig.appId.includes("your_")) {
+    firebaseError = "🔥 Firebase App ID is not configured. Please update VITE_FIREBASE_APP_ID in .env.local with your actual App ID from Firebase Console.";
 }
 
 if (!firebaseError) {
@@ -62,8 +64,24 @@ const signInWithGoogle = async () => {
     if (!auth || !provider) {
         throw new Error("Firebase Auth is not initialized. Check your Firebase configuration.");
     }
-    // The user will be redirected to the Google sign-in page.
-    await auth.signInWithRedirect(provider);
+    
+    try {
+        // The user will be redirected to the Google sign-in page.
+        await auth.signInWithRedirect(provider);
+    } catch (error: any) {
+        console.error("Sign-in error:", error);
+        
+        // Provide more specific error messages
+        if (error.code === 'auth/api-key-not-valid') {
+            throw new Error("Firebase API key is invalid. Please check your Firebase project configuration.");
+        } else if (error.code === 'auth/project-not-found') {
+            throw new Error("Firebase project not found. Please verify your project ID.");
+        } else if (error.code === 'auth/invalid-api-key') {
+            throw new Error("Invalid Firebase API key. Please update your configuration.");
+        } else {
+            throw new Error(`Authentication failed: ${error.message}`);
+        }
+    }
 };
 
 /**
