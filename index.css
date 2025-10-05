@@ -54,6 +54,41 @@ body {
   }
 }
 
+/* Text Logo Styles */
+.text-logo {
+  font-size: 2.5rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, var(--primary-accent), #4CAF50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  animation: grandGlow 4s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.text-logo-header {
+  font-size: 1.8rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, var(--primary-accent), #4CAF50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 1px;
+}
+
+.text-logo-header:hover {
+  transform: scale(1.05);
+  filter: brightness(1.2);
+}
+
 
 /* Offline Banner */
 .offline-banner {

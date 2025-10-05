@@ -34,6 +34,7 @@ interface Audit {
 
 
 // --- Logo ---
+// Using text-based logo temporarily due to broken image URL
 const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
 
 // --- Gemini API Proxy ---
@@ -47,7 +48,7 @@ if (functions) {
 
 const LoadingScreen: FC = () => (
     <div className="loading-screen" aria-label="Loading application">
-        <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
+        <div className="text-logo">SMARTLOCAL.AI</div>
         <div className="loading-spinner"></div>
     </div>
 );
@@ -82,7 +83,7 @@ const LoginView: FC = () => {
     return (
         <div className="login-view">
             <div className="login-box">
-                <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
+                <div className="text-logo">SMARTLOCAL.AI</div>
                 <h1>AI-Powered Local Business Growth</h1>
                 <p>Sign in to access your dashboard and start optimizing your local presence.</p>
                 
@@ -128,7 +129,7 @@ const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => vo
     return (
         <header className="app-header">
             <div className="header-branding">
-                <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
+                <div className="text-logo-header">SMARTLOCAL.AI</div>
             </div>
             <nav className="app-nav">
                 {views.map(view => {
