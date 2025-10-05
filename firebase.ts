@@ -57,8 +57,8 @@ if (!firebaseError) {
 const provider = auth ? new firebase.auth.GoogleAuthProvider() : null;
 
 /**
- * Initiates Google Sign-In flow using redirect. This is more robust against
- * popup blockers and certain browser security policies like COOP.
+ * Initiates Google Sign-In flow using popup first, with redirect as fallback.
+ * This avoids common redirect loop issues while maintaining compatibility.
  */
 const signInWithGoogle = async () => {
     if (!auth || !provider) {
@@ -66,12 +66,26 @@ const signInWithGoogle = async () => {
     }
     
     try {
-        // The user will be redirected to the Google sign-in page.
-        await auth.signInWithRedirect(provider);
+        // Try popup first (more reliable, avoids redirect loops)
+        const result = await auth.signInWithPopup(provider);
+        console.log('Sign-in successful:', result.user.displayName);
+        return result;
     } catch (error: any) {
-        console.error("Sign-in error:", error);
+        console.error("Popup sign-in failed, trying redirect:", error);
         
-        // Provide more specific error messages
+        // If popup fails (blocked, etc.), fallback to redirect
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+            console.log('Popup blocked, using redirect method...');
+            try {
+                await auth.signInWithRedirect(provider);
+                return; // Will complete via getRedirectResult
+            } catch (redirectError: any) {
+                console.error("Redirect sign-in also failed:", redirectError);
+                throw new Error(`Sign-in failed: ${redirectError.message}`);
+            }
+        }
+        
+        // Provide more specific error messages for other errors
         if (error.code === 'auth/api-key-not-valid') {
             throw new Error("Firebase API key is invalid. Please check your Firebase project configuration.");
         } else if (error.code === 'auth/project-not-found') {
