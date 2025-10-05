@@ -1,10 +1,13 @@
 
-import React, { useState, useEffect, type FC, useCallback } from 'react';
+import React, { useState, useEffect, type FC, useCallback, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { auth, signInWithGoogle, signOut, type User, firebaseError, db, functions } from './firebase';
-import { MapView } from './MapView';
 import type { HttpsCallableResult } from 'firebase/functions';
+import ErrorBoundary from './ErrorBoundary';
+
+// Lazy load the MapView component
+const MapView = lazy(() => import('./MapView').then(module => ({ default: module.MapView })));
 
 
 // --- Type Definitions ---
@@ -734,7 +737,11 @@ const App: FC = () => {
     
     const renderView = () => {
         switch (currentView) {
-            case 'MAP': return <MapView onStartAudit={handleStartAudit} />;
+            case 'MAP': return (
+                <Suspense fallback={<div className="loading-spinner">Loading Map...</div>}>
+                    <MapView onStartAudit={handleStartAudit} />
+                </Suspense>
+            );
             case 'SERVICES': return <ServicesView />;
             case 'CLIENT_SETUP': return <ClientSetupView onCreateProfile={handleCreateProfile} />;
             case 'AUDIT': return <AuditView business={auditTarget} onSaveAudit={handleSaveAudit} />;
@@ -762,7 +769,9 @@ const App: FC = () => {
             <OfflineBanner />
             <AppHeader user={user} currentView={currentView} setView={handleViewChange} onSignOut={signOut} />
             <main className="app-container">
-                {renderView()}
+                <ErrorBoundary>
+                    {renderView()}
+                </ErrorBoundary>
             </main>
         </>
     );
@@ -772,7 +781,11 @@ const App: FC = () => {
 const container = document.getElementById('root');
 if (container) {
     const root = createRoot(container);
-    root.render(<App />);
+    root.render(
+        <ErrorBoundary>
+            <App />
+        </ErrorBoundary>
+    );
 } else {
     console.error('Failed to find the root element.');
 }

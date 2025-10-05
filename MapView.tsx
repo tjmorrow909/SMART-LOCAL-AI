@@ -80,8 +80,8 @@ interface MapViewProps {
 }
 
 // --- Constants ---
-// Using the API key from the firebase config.
-const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
+// Using the API key from environment variables, with fallback
+const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
 
 
 // --- Helper Components ---
@@ -115,6 +115,12 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     useEffect(() => {
         if (isApiReady) {
             return; // API already loaded
+        }
+
+        // Check if API key is configured
+        if (!MAPS_API_KEY || MAPS_API_KEY.includes('your_google_maps_api_key_here')) {
+            setError("Google Maps API key is not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment.");
+            return;
         }
 
         const loader = new Loader({

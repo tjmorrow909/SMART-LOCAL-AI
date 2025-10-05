@@ -19,6 +19,18 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              vendor: ['react', 'react-dom'],
+              firebase: ['firebase'],
+              maps: ['@googlemaps/js-api-loader']
+            }
+          }
+        },
+        chunkSizeWarningLimit: 1000
       }
     };
 });
