@@ -57,8 +57,8 @@ if (!firebaseError) {
 const provider = auth ? new firebase.auth.GoogleAuthProvider() : null;
 
 /**
- * Initiates Google Sign-In flow using popup first, with redirect as fallback.
- * This avoids common redirect loop issues while maintaining compatibility.
+ * Initiates Google Sign-In flow using redirect method to avoid popup blockers.
+ * This is more reliable in production environments with strict popup policies.
  */
 const signInWithGoogle = async () => {
     if (!auth || !provider) {
@@ -66,32 +66,22 @@ const signInWithGoogle = async () => {
     }
     
     try {
-        // Try popup first (more reliable, avoids redirect loops)
-        const result = await auth.signInWithPopup(provider);
-        console.log('Sign-in successful:', result.user.displayName);
-        return result;
+        // Use redirect method directly to avoid popup blockers
+        console.log('Initiating Google Sign-In redirect...');
+        await auth.signInWithRedirect(provider);
+        // Note: This will redirect the page, completion handled by getRedirectResult
     } catch (error: any) {
-        console.error("Popup sign-in failed, trying redirect:", error);
+        console.error("Redirect sign-in failed:", error);
         
-        // If popup fails (blocked, etc.), fallback to redirect
-        if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
-            console.log('Popup blocked, using redirect method...');
-            try {
-                await auth.signInWithRedirect(provider);
-                return; // Will complete via getRedirectResult
-            } catch (redirectError: any) {
-                console.error("Redirect sign-in also failed:", redirectError);
-                throw new Error(`Sign-in failed: ${redirectError.message}`);
-            }
-        }
-        
-        // Provide more specific error messages for other errors
+        // Provide more specific error messages
         if (error.code === 'auth/api-key-not-valid') {
             throw new Error("Firebase API key is invalid. Please check your Firebase project configuration.");
         } else if (error.code === 'auth/project-not-found') {
             throw new Error("Firebase project not found. Please verify your project ID.");
         } else if (error.code === 'auth/invalid-api-key') {
             throw new Error("Invalid Firebase API key. Please update your configuration.");
+        } else if (error.code === 'auth/unauthorized-domain') {
+            throw new Error("This domain is not authorized for Firebase authentication. Please add it to your Firebase project settings.");
         } else {
             throw new Error(`Authentication failed: ${error.message}`);
         }

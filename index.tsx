@@ -64,6 +64,14 @@ const LoginView: FC = () => {
         
         try {
             await signInWithGoogle();
+            // For redirect method, the page will redirect, so we don't reset signingIn here
+            // If we reach this point and there's no redirect, something went wrong
+            setTimeout(() => {
+                if (signingIn) {
+                    setSignInError('Sign-in redirect did not complete. Please try again.');
+                    setSigningIn(false);
+                }
+            }, 5000);
         } catch (error: any) {
             console.error('Sign-in failed:', error);
             setSignInError(error.message || 'Sign-in failed. Please try again.');
@@ -80,7 +88,17 @@ const LoginView: FC = () => {
                 
                 {signInError && (
                     <div style={{ color: 'var(--danger)', marginBottom: '1rem', padding: '0.5rem', background: '#fff1f1', border: '1px solid var(--danger)', borderRadius: '4px' }}>
-                        {signInError}
+                        <strong>Sign-in Failed:</strong> {signInError}
+                        {signInError.includes('Blocked by client') && (
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                                <p><strong>Possible fixes:</strong></p>
+                                <p>1. Check if popup blockers are enabled</p>
+                                <p>2. Ensure this domain is authorized in Firebase Console:</p>
+                                <p style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '0.25rem' }}>
+                                    Authentication → Settings → Authorized domains
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
                 
@@ -686,28 +704,38 @@ const App: FC = () => {
             return;
         }
 
+        let isMounted = true;
+
         // Handle redirect result first (for Google Sign-In redirect)
-        // Only check once to prevent loops
-        let redirectHandled = false;
-        
-        auth.getRedirectResult().then((result) => {
-            if (result?.user && !redirectHandled) {
-                console.log('Sign-in successful via redirect:', result.user.displayName);
-                redirectHandled = true;
+        const handleRedirect = async () => {
+            try {
+                const result = await auth.getRedirectResult();
+                if (result?.user && isMounted) {
+                    console.log('Sign-in successful via redirect:', result.user.displayName);
+                    // Don't need to do anything else, onAuthStateChanged will handle the user state
+                }
+            } catch (error: any) {
+                if (error.code !== 'auth/no-auth-event' && isMounted) {
+                    console.error('Redirect sign-in error:', error);
+                }
             }
-        }).catch((error) => {
-            if (error.code !== 'auth/no-auth-event') {
-                console.error('Redirect sign-in error:', error);
+        };
+
+        handleRedirect();
+
+        const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+            if (isMounted) {
+                console.log('Auth state changed:', currentUser ? `Signed in as ${currentUser.displayName}` : 'Signed out');
+                setUser(currentUser);
+                fetchProfiles(currentUser);
+                setLoading(false);
             }
         });
 
-        const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-            console.log('Auth state changed:', currentUser ? `Signed in as ${currentUser.displayName}` : 'Signed out');
-            setUser(currentUser);
-            fetchProfiles(currentUser);
-            setLoading(false);
-        });
-        return () => unsubscribe();
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
     }, [fetchProfiles]);
     
     useEffect(() => {
