@@ -1,13 +1,10 @@
 
-import React, { useState, useEffect, type FC, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, type FC, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { auth, signInWithGoogle, signOut, type User, db, functions } from './firebase';
-import type { HttpsCallableResult } from 'firebase/functions';
-import ErrorBoundary from './ErrorBoundary';
-
-// Lazy load the MapView component
-const MapView = lazy(() => import('./MapView').then(module => ({ default: module.MapView })));
+import { auth, signInWithGoogle, signOut, type User, firebaseError, db, functions } from './firebase';
+import { MapView } from './MapView';
+import type { HttpsCallableResult, HttpsCallable } from 'firebase/functions';
 
 
 // --- Type Definitions ---
@@ -34,11 +31,10 @@ interface Audit {
 
 
 // --- Logo ---
-// Using text-based logo temporarily due to broken image URL
 const logoUrl = 'https://storage.googleapis.com/imageonline/ChatGPT%20Image%20Aug%2010%2C%202025%2C%2010_03_53%20AM.png';
 
 // --- Gemini API Proxy ---
-let geminiProxy: any = null;
+let geminiProxy: HttpsCallable<{ action: string; params: any }, { text: string }> | null = null;
 if (functions) {
     geminiProxy = functions.httpsCallable('geminiProxy');
 }
@@ -48,74 +44,24 @@ if (functions) {
 
 const LoadingScreen: FC = () => (
     <div className="loading-screen" aria-label="Loading application">
-        <div className="text-logo">SMARTLOCAL.AI</div>
+        <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
         <div className="loading-spinner"></div>
     </div>
 );
 
-const LoginView: FC = () => {
-    const [signingIn, setSigningIn] = useState(false);
-    const [signInError, setSignInError] = useState<string | null>(null);
-
-    const handleSignIn = async () => {
-        if (signingIn) return; // Prevent multiple clicks
-        
-        setSigningIn(true);
-        setSignInError(null);
-        
-        try {
-            await signInWithGoogle();
-            // For redirect method, the page will redirect, so we don't reset signingIn here
-            // If we reach this point and there's no redirect, something went wrong
-            setTimeout(() => {
-                if (signingIn) {
-                    setSignInError('Sign-in redirect did not complete. Please try again.');
-                    setSigningIn(false);
-                }
-            }, 5000);
-        } catch (error: any) {
-            console.error('Sign-in failed:', error);
-            setSignInError(error.message || 'Sign-in failed. Please try again.');
-            setSigningIn(false);
-        }
-    };
-
-    return (
-        <div className="login-view">
-            <div className="login-box">
-                <div className="text-logo">SMARTLOCAL.AI</div>
-                <h1>AI-Powered Local Business Growth</h1>
-                <p>Sign in to access your dashboard and start optimizing your local presence.</p>
-                
-                {signInError && (
-                    <div style={{ color: 'var(--danger)', marginBottom: '1rem', padding: '0.5rem', background: '#fff1f1', border: '1px solid var(--danger)', borderRadius: '4px' }}>
-                        <strong>Sign-in Failed:</strong> {signInError}
-                        {signInError.includes('Blocked by client') && (
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                                <p><strong>Possible fixes:</strong></p>
-                                <p>1. Check if popup blockers are enabled</p>
-                                <p>2. Ensure this domain is authorized in Firebase Console:</p>
-                                <p style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '0.25rem' }}>
-                                    Authentication → Settings → Authorized domains
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                )}
-                
-                <button 
-                    className="btn btn-google" 
-                    onClick={handleSignIn}
-                    disabled={signingIn}
-                    style={{ opacity: signingIn ? 0.7 : 1 }}
-                >
-                    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><g fill="none" fillRule="evenodd"><path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4818h4.8436c-.2086 1.125-.8427 2.0782-1.7772 2.7218v2.2582h2.9082c1.7018-1.5668 2.6836-3.8741 2.6836-6.621v.0001z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2582c-.8059.54-1.8368.8618-3.0482.8618-2.344 0-4.3282-1.5818-5.0359-3.7118H.9573v2.3318C2.4382 16.1423 5.4818 18 9 18z" fill="#34A853"></path><path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573C.3477 6.1732 0 7.5477 0 9s.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#FBBC05"></path><path d="M9 3.4773c1.3236 0 2.52.4573 3.4418 1.346l2.5818-2.5818C13.4636.8918 11.43 0 9 0 5.4818 0 2.4382 1.8577.9573 4.9582L3.964 7.29C4.6718 5.159 6.656 3.4773 9 3.4773z" fill="#EA4335"></path></g></svg>
-                    {signingIn ? 'Signing In...' : 'Sign In with Google'}
-                </button>
-            </div>
+const LoginView: FC = () => (
+    <div className="login-view">
+        <div className="login-box">
+            <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
+            <h1>AI-Powered Local Business Growth</h1>
+            <p>Sign in to access your dashboard and start optimizing your local presence.</p>
+            <button className="btn btn-google" onClick={signInWithGoogle}>
+                <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><g fill="none" fillRule="evenodd"><path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4818h4.8436c-.2086 1.125-.8427 2.0782-1.7772 2.7218v2.2582h2.9082c1.7018-1.5668 2.6836-3.8741 2.6836-6.621v.0001z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2582c-.8059.54-1.8368.8618-3.0482.8618-2.344 0-4.3282-1.5818-5.0359-3.7118H.9573v2.3318C2.4382 16.1423 5.4818 18 9 18z" fill="#34A853"></path><path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573C.3477 6.1732 0 7.5477 0 9s.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#FBBC05"></path><path d="M9 3.4773c1.3236 0 2.52.4573 3.4418 1.346l2.5818-2.5818C13.4636.8918 11.43 0 9 0 5.4818 0 2.4382 1.8577.9573 4.9582L3.964 7.29C4.6718 5.159 6.656 3.4773 9 3.4773z" fill="#EA4335"></path></g></svg>
+                Sign In with Google
+            </button>
         </div>
-    );
-};
+    </div>
+);
 
 const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => void; onSignOut: () => void; }> = ({ user, currentView, setView, onSignOut }) => {
     const views: { id: View; label: string }[] = [
@@ -129,7 +75,7 @@ const AppHeader: FC<{ user: User; currentView: View; setView: (view: View) => vo
     return (
         <header className="app-header">
             <div className="header-branding">
-                <div className="text-logo-header">SMARTLOCAL.AI</div>
+                <img src={logoUrl} alt="SMARTLOCAL.AI Logo" className="header-logo" />
             </div>
             <nav className="app-nav">
                 {views.map(view => {
@@ -704,39 +650,12 @@ const App: FC = () => {
             setLoading(false);
             return;
         }
-
-        let isMounted = true;
-
-        // Handle redirect result first (for Google Sign-In redirect)
-        const handleRedirect = async () => {
-            try {
-                const result = await auth.getRedirectResult();
-                if (result?.user && isMounted) {
-                    console.log('Sign-in successful via redirect:', result.user.displayName);
-                    // Don't need to do anything else, onAuthStateChanged will handle the user state
-                }
-            } catch (error: any) {
-                if (error.code !== 'auth/no-auth-event' && isMounted) {
-                    console.error('Redirect sign-in error:', error);
-                }
-            }
-        };
-
-        handleRedirect();
-
         const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-            if (isMounted) {
-                console.log('Auth state changed:', currentUser ? `Signed in as ${currentUser.displayName}` : 'Signed out');
-                setUser(currentUser);
-                fetchProfiles(currentUser);
-                setLoading(false);
-            }
+            setUser(currentUser);
+            fetchProfiles(currentUser);
+            setLoading(false);
         });
-
-        return () => {
-            isMounted = false;
-            unsubscribe();
-        };
+        return () => unsubscribe();
     }, [fetchProfiles]);
     
     useEffect(() => {
@@ -796,7 +715,14 @@ const App: FC = () => {
         });
     };
 
-    // Removed firebaseError handling since it is no longer exported from firebase.ts
+    if (firebaseError) {
+        return (
+            <div style={{ padding: '2rem', color: '#dc3545', textAlign: 'center' }}>
+                <h2>Configuration Error</h2>
+                <p>{firebaseError}</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return <LoadingScreen />;
@@ -808,11 +734,7 @@ const App: FC = () => {
     
     const renderView = () => {
         switch (currentView) {
-            case 'MAP': return (
-                <Suspense fallback={<div className="loading-spinner">Loading Map...</div>}>
-                    <MapView onStartAudit={handleStartAudit} />
-                </Suspense>
-            );
+            case 'MAP': return <MapView onStartAudit={handleStartAudit} />;
             case 'SERVICES': return <ServicesView />;
             case 'CLIENT_SETUP': return <ClientSetupView onCreateProfile={handleCreateProfile} />;
             case 'AUDIT': return <AuditView business={auditTarget} onSaveAudit={handleSaveAudit} />;
@@ -840,9 +762,7 @@ const App: FC = () => {
             <OfflineBanner />
             <AppHeader user={user} currentView={currentView} setView={handleViewChange} onSignOut={signOut} />
             <main className="app-container">
-                <ErrorBoundary>
-                    {renderView()}
-                </ErrorBoundary>
+                {renderView()}
             </main>
         </>
     );
@@ -852,11 +772,7 @@ const App: FC = () => {
 const container = document.getElementById('root');
 if (container) {
     const root = createRoot(container);
-    root.render(
-        <ErrorBoundary>
-            <App />
-        </ErrorBoundary>
-    );
+    root.render(<App />);
 } else {
     console.error('Failed to find the root element.');
 }

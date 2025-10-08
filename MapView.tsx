@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, type FC } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
 
@@ -80,8 +81,8 @@ interface MapViewProps {
 }
 
 // --- Constants ---
-// Using the API key from environment variables, with fallback
-const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyAylaaHTNErQ5xi0wXs0IHtTPunSKOvAHg";
+// Using the API key from the firebase config.
+const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
 
 
 // --- Helper Components ---
@@ -104,6 +105,8 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     const [isApiReady, setIsApiReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true); // Start with loading true
+    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [isHistoryVisible, setHistoryVisible] = useState(false);
     
     const mapRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -111,16 +114,24 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     const placesService = useRef<google.maps.places.PlacesService | null>(null);
     const infoWindow = useRef<google.maps.InfoWindow | null>(null);
     const markers = useRef<google.maps.Marker[]>([]);
+    
+    const HISTORY_KEY = 'smartlocal-map-search-history';
+    const MAX_HISTORY_ITEMS = 10;
+
+    useEffect(() => {
+        try {
+            const storedHistory = localStorage.getItem(HISTORY_KEY);
+            if (storedHistory) {
+                setSearchHistory(JSON.parse(storedHistory));
+            }
+        } catch (e) {
+            console.error("Failed to parse search history from localStorage", e);
+        }
+    }, []);
 
     useEffect(() => {
         if (isApiReady) {
             return; // API already loaded
-        }
-
-        // Check if API key is configured
-        if (!MAPS_API_KEY || MAPS_API_KEY.includes('your_google_maps_api_key_here')) {
-            setError("Google Maps API key is not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment.");
-            return;
         }
 
         const loader = new Loader({
@@ -144,6 +155,24 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
 
     }, [isApiReady]);
 
+    const updateSearchHistory = (query: string) => {
+        if (!query || !query.trim()) return;
+        const trimmedQuery = query.trim();
+
+        const newHistory = [
+            trimmedQuery,
+            ...searchHistory.filter(item => item.toLowerCase() !== trimmedQuery.toLowerCase())
+        ].slice(0, MAX_HISTORY_ITEMS);
+
+        setSearchHistory(newHistory);
+        
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+        } catch (e) {
+            console.error("Failed to save search history to localStorage", e);
+        }
+    };
+
     const initMap = (google: typeof window.google) => {
         if (!mapRef.current || !searchInputRef.current) return;
 
@@ -156,18 +185,17 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         infoWindow.current = new google.maps.InfoWindow();
 
         const autocomplete = new google.maps.places.Autocomplete(searchInputRef.current, {
-             fields: ["geometry", "name", "website"],
+             fields: ["geometry", "name"],
         });
         
         autocomplete.addListener('place_changed', () => {
             const place = autocomplete.getPlace();
+            const query = searchInputRef.current?.value || place.name || "";
             if (place.geometry && place.geometry.location) {
                 mapInstance.current?.setCenter(place.geometry.location);
                 mapInstance.current?.setZoom(14);
-                performSearch({ query: searchInputRef.current?.value || place.name || "" });
-            } else {
-                performSearch({ query: searchInputRef.current!.value });
             }
+            performSearch({ query });
         });
         
         infoWindow.current.addListener('domready', () => {
@@ -198,7 +226,14 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     };
     
     const performSearch = (request: google.maps.places.TextSearchRequest) => {
-        if (!placesService.current) return;
+        if (!placesService.current || !request.query.trim()) return;
+        
+        updateSearchHistory(request.query);
+        setHistoryVisible(false);
+        if (searchInputRef.current) {
+            searchInputRef.current.blur(); // Dismiss keyboard on mobile
+        }
+
         if (!request.location) {
             request.location = mapInstance.current!.getCenter()!;
         }
@@ -212,6 +247,13 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
                 console.warn("Places search failed with status:", status);
             }
         });
+    };
+
+    const handleHistoryClick = (query: string) => {
+        if (searchInputRef.current) {
+            searchInputRef.current.value = query;
+            performSearch({ query });
+        }
     };
     
     const createMarkers = (places: google.maps.places.PlaceResult[]) => {
@@ -264,13 +306,40 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         <div className="map-view-wrapper">
             {error && <MapError message={error} />}
             {loading && <MapLoaderFC />}
-            <input
-                ref={searchInputRef}
-                type="text"
-                className="map-search-input"
-                placeholder="Search for a business or location"
-                disabled={!isApiReady}
-            />
+            <div className="map-search-container">
+                <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="map-search-input"
+                    placeholder="Search for a business or location"
+                    disabled={!isApiReady}
+                    onFocus={() => setHistoryVisible(true)}
+                    onBlur={() => {
+                        // Delay hiding to allow clicks on history items
+                        setTimeout(() => setHistoryVisible(false), 200);
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && searchInputRef.current) {
+                            performSearch({ query: searchInputRef.current.value });
+                        }
+                    }}
+                    autoComplete="off"
+                />
+                {isHistoryVisible && searchHistory.length > 0 && (
+                    <div className="search-history-dropdown">
+                        {searchHistory.map((item, index) => (
+                            <div
+                                key={`${item}-${index}`}
+                                className="search-history-item"
+                                // Use onMouseDown to trigger before the input's onBlur
+                                onMouseDown={() => handleHistoryClick(item)}
+                            >
+                                {item}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
             <div ref={mapRef} className="map-container"></div>
         </div>
     );
