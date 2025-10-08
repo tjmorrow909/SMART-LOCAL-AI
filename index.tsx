@@ -2,7 +2,7 @@
 import React, { useState, useEffect, type FC, useCallback, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { auth, signInWithGoogle, signOut, type User, firebaseError, db, functions } from './firebase';
+import { auth, signInWithGoogle, signOut, type User, db, functions } from './firebase';
 import type { HttpsCallableResult } from 'firebase/functions';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -796,32 +796,7 @@ const App: FC = () => {
         });
     };
 
-    if (firebaseError) {
-        return (
-            <div className="error-boundary">
-                <div className="error-content">
-                    <h2>🔧 Configuration Required</h2>
-                    <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
-                        <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>{firebaseError}</pre>
-                    </div>
-                    <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', textAlign: 'left' }}>
-                        <h4>🔑 Quick Fix:</h4>
-                        <p>1. Visit the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">Firebase Console</a></p>
-                        <p>2. Select project: <strong>smartlocalai-469603</strong></p>
-                        <p>3. Go to <strong>Project Settings → General → Your apps</strong></p>
-                        <p>4. Copy the config and update <code>.env.local</code></p>
-                    </div>
-                    <button 
-                        onClick={() => window.location.reload()} 
-                        className="btn btn-primary"
-                        style={{ marginTop: '1rem' }}
-                    >
-                        🔄 Retry after configuration
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    // Removed firebaseError handling since it is no longer exported from firebase.ts
 
     if (loading) {
         return <LoadingScreen />;

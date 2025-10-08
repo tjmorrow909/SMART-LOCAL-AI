@@ -20,6 +20,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
 
+// --- Error Handling ---
+let firebaseError: string | null = null;
+if (!firebaseConfig.apiKey) {
+  firebaseError = "Firebase API Key is not configured.";
+} else if (!firebaseConfig.projectId) {
+  firebaseError = "Firebase Project ID is not configured.";
+}
+
 // --- Authentication Functions ---
 const provider = new GoogleAuthProvider();
 
@@ -37,6 +45,9 @@ const signOut = async () => {
   await firebaseSignOut(auth);
 };
 
+// --- User Type ---
+export type User = import("firebase/auth").User;
+
 // --- Exports ---
 export {
   auth,
@@ -44,4 +55,5 @@ export {
   functions,
   signInWithGoogle,
   signOut,
+  firebaseError,
 };
