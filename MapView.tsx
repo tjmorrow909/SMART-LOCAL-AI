@@ -80,15 +80,9 @@ interface MapViewProps {
 }
 
 // --- Constants ---
-<<<<<<< HEAD
-// Using the API key from the firebase config.
-const MAPS_API_KEY = "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg";
-
-=======
 // Using the API key from environment variables, with fallback
 const MAPS_API_KEY =
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyAylaaHTNErQ5xi0wXs0IHtTPunSKOvAHg';
->>>>>>> b419a04 (feat: Implement core application structure with authentication, profile management, and AI tools)
 
 // --- Helper Components ---
 
@@ -107,7 +101,6 @@ const MapError: FC<{ message: string }> = ({ message }) => (
 // --- Main Map View Component ---
 
 export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
-<<<<<<< HEAD
     const [isApiReady, setIsApiReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true); // Start with loading true
@@ -134,20 +127,8 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
             console.error("Failed to parse search history from localStorage", e);
         }
     }, []);
-=======
-  const [isApiReady, setIsApiReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // Start with loading true
->>>>>>> b419a04 (feat: Implement core application structure with authentication, profile management, and AI tools)
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const mapInstance = useRef<google.maps.Map | null>(null);
-  const placesService = useRef<google.maps.places.PlacesService | null>(null);
-  const infoWindow = useRef<google.maps.InfoWindow | null>(null);
-  const markers = useRef<google.maps.Marker[]>([]);
-
-<<<<<<< HEAD
+    useEffect(() => {
         const loader = new Loader({
             apiKey: MAPS_API_KEY,
             version: "weekly",
@@ -166,8 +147,7 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
             .finally(() => {
                  setLoading(false);
             });
-
-    }, [isApiReady]);
+    }, []);
 
     const updateSearchHistory = (query: string) => {
         if (!query || !query.trim()) return;
@@ -275,42 +255,51 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         markers.current = [];
         
         const bounds = new google.maps.LatLngBounds();
-=======
-  useEffect(() => {
-    if (isApiReady) {
-      return; // API already loaded
-    }
+  const createMarkers = (places: google.maps.places.PlaceResult[]) => {
+        markers.current.forEach(marker => marker.setMap(null));
+        markers.current = [];
+        
+        const bounds = new google.maps.LatLngBounds();
 
-    // Check if API key is configured
-    if (!MAPS_API_KEY || MAPS_API_KEY.includes('your_google_maps_api_key_here')) {
-      setError(
-        'Google Maps API key is not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment.'
-      );
-      return;
-    }
+        places.forEach((place) => {
+            if (!place.geometry || !place.geometry.location || !place.name) return;
 
-    const loader = new Loader({
-      apiKey: MAPS_API_KEY,
-      version: 'weekly',
-      libraries: ['places', 'marker'],
-    });
+            const marker = new google.maps.Marker({
+                map: mapInstance.current,
+                position: place.geometry.location,
+                title: place.name,
+                animation: google.maps.Animation.DROP,
+                icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            });
 
-    loader
-      .load()
-      .then((google) => {
-        setIsApiReady(true);
-        initMap(google);
-      })
-      .catch((e) => {
-        console.error('Failed to load Google Maps script:', e);
-        setError(
-          "Failed to load Google Maps. Please check that the API key is correct and has the 'Maps JavaScript API' and 'Places API' enabled."
-        );
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [isApiReady]);
+            marker.addListener('click', () => {
+                if (!infoWindow.current) return;
+
+                const website = place.website ?? '';
+                const encodedName = encodeURIComponent(place.name!);
+                const encodedWebsite = encodeURIComponent(website);
+
+                const content = `
+                    <div class="map-infowindow-content">
+                        <h4>${place.name}</h4>
+                        <p>${place.formatted_address || ''}</p>
+                        <div class="map-infowindow-buttons" style="margin-top: 1rem;">
+                            <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start an audit</button>
+                        </div>
+                    </div>
+                `;
+                infoWindow.current.setContent(content);
+                infoWindow.current.open(mapInstance.current, marker);
+            });
+
+            markers.current.push(marker);
+            bounds.extend(place.geometry.location);
+        });
+
+        if (mapInstance.current && markers.current.length > 0) {
+            mapInstance.current.fitBounds(bounds);
+        }
+    };
 
   const initMap = (google: typeof window.google) => {
     if (!mapRef.current || !searchInputRef.current) return;
@@ -364,7 +353,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
       });
     });
   };
->>>>>>> b419a04 (feat: Implement core application structure with authentication, profile management, and AI tools)
 
   const performSearch = (request: google.maps.places.TextSearchRequest) => {
     if (!placesService.current) return;
@@ -420,7 +408,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         infoWindow.current.open(mapInstance.current, marker);
       });
 
-<<<<<<< HEAD
     return (
         <div className="map-view-wrapper">
             {error && <MapError message={error} />}
@@ -462,29 +449,4 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
             <div ref={mapRef} className="map-container"></div>
         </div>
     );
-=======
-      markers.current.push(marker);
-      bounds.extend(place.geometry.location);
-    });
-
-    if (mapInstance.current && markers.current.length > 0) {
-      mapInstance.current.fitBounds(bounds);
-    }
-  };
-
-  return (
-    <div className="map-view-wrapper">
-      {error && <MapError message={error} />}
-      {loading && <MapLoaderFC />}
-      <input
-        ref={searchInputRef}
-        type="text"
-        className="map-search-input"
-        placeholder="Search for a business or location"
-        disabled={!isApiReady}
-      />
-      <div ref={mapRef} className="map-container"></div>
-    </div>
-  );
->>>>>>> b419a04 (feat: Implement core application structure with authentication, profile management, and AI tools)
 };
