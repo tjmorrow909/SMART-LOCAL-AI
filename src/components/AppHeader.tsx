@@ -7,7 +7,7 @@ import type { User } from 'firebase/auth';
 interface AppHeaderProps {
   user: User;
   currentView: View;
-  setView: (view: View) => void;
+  setView: (_view: View) => void;
   onSignOut: () => void;
 }
 

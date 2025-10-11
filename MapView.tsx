@@ -1,74 +1,9 @@
-import React, { useState, useEffect, useRef, type FC } from 'react';
+import React, { useState, useEffect, useRef, type FC, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 
-// --- Google Maps Type Declarations ---
 declare global {
   interface Window {
-    google: any;
-  }
-}
-
-declare namespace google.maps {
-  class Map {
-    constructor(mapDiv: Element, opts?: any);
-    setCenter(latLng: LatLng | any): void;
-    setZoom(zoom: number): void;
-    getCenter(): LatLng;
-    fitBounds(bounds: LatLngBounds | any): void;
-  }
-  class Marker {
-    constructor(opts?: any);
-    setMap(map: Map | null): void;
-    addListener(eventName: string, handler: Function): MapsEventListener;
-  }
-  interface MapsEventListener {
-    remove(): void;
-  }
-  class InfoWindow {
-    constructor(opts?: any);
-    setContent(content: string | Element): void;
-    open(map: Map | any, anchor?: any): void;
-    close(): void;
-    addListener(eventName: string, handler: Function): MapsEventListener;
-  }
-  class LatLng {
-    constructor(lat: number, lng: number);
-  }
-  class LatLngBounds {
-    constructor(sw?: LatLng, ne?: LatLng);
-    extend(point: LatLng | any): void;
-  }
-  enum Animation {
-    DROP,
-  }
-  namespace places {
-    class PlacesService {
-      constructor(attrContainer: HTMLDivElement | Map);
-      textSearch(
-        request: TextSearchRequest,
-        callback: (results: PlaceResult[] | null, status: PlacesServiceStatus) => void
-      ): void;
-    }
-    class Autocomplete {
-      constructor(inputField: HTMLInputElement, opts?: any);
-      getPlace(): PlaceResult;
-      addListener(eventName: string, handler: Function): MapsEventListener;
-    }
-    interface TextSearchRequest {
-      location?: LatLng;
-      radius?: number;
-      query: string;
-    }
-    enum PlacesServiceStatus {
-      OK = 'OK',
-    }
-    interface PlaceResult {
-      geometry?: { location: LatLng };
-      name?: string;
-      formatted_address?: string;
-      website?: string;
-      place_id?: string;
-    }
+    google: typeof import('google.maps');
   }
 }
 
@@ -96,7 +31,6 @@ const MapError: FC<{ message: string }> = ({ message }) => (
 
 // --- Main Map View Component ---
 export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
-  const [isApiReady, setIsApiReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -111,7 +45,88 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
 
   const HISTORY_KEY = 'smartlocal-map-search-history';
   const MAX_HISTORY_ITEMS = 10;
-  const initMap = (google: typeof window.google) => {
+
+  const updateSearchHistory = useCallback((query: string) => {
+    if (!query || !query.trim()) return;
+    const trimmedQuery = query.trim();
+
+    const newHistory = [
+      trimmedQuery,
+      ...searchHistory.filter((item) => item.toLowerCase() !== trimmedQuery.toLowerCase()),
+    ].slice(0, MAX_HISTORY_ITEMS);
+
+    setSearchHistory(newHistory);
+
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+    } catch (e) {
+      console.error('Failed to save search history to localStorage', e);
+    }
+  }, [searchHistory]);
+
+  const createMarkers = useCallback((places: google.maps.places.PlaceResult[]) => {
+    markers.current.forEach((marker) => marker.setMap(null));
+    markers.current = [];
+
+    const bounds = new window.google.maps.LatLngBounds();
+
+    places.forEach((place) => {
+      if (!place.geometry || !place.geometry.location || !place.name) return;
+
+      const marker = new window.google.maps.Marker({
+        map: mapInstance.current,
+        position: place.geometry.location,
+        title: place.name,
+        animation: window.google.maps.Animation.DROP,
+        icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+      });
+
+      marker.addListener('click', () => {
+        if (!infoWindow.current) return;
+
+        const website = place.website ?? '';
+        const encodedName = encodeURIComponent(place.name!);
+        const encodedWebsite = encodeURIComponent(website);
+
+        const content = `
+          <div class="map-infowindow-content">
+            <h4>${place.name}</h4>
+            <p>${place.formatted_address || ''}</p>
+            <div class="map-infowindow-buttons" style="margin-top: 1rem;">
+              <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start an audit</button>
+            </div>
+          </div>
+        `;
+        infoWindow.current.setContent(content);
+        infoWindow.current.open(mapInstance.current, marker);
+      });
+
+      markers.current.push(marker);
+      bounds.extend(place.geometry.location);
+    });
+
+    if (mapInstance.current && markers.current.length > 0) {
+      mapInstance.current.fitBounds(bounds);
+    }
+  }, []);
+
+
+
+  const performSearch = useCallback((request: google.maps.places.TextSearchRequest) => {
+    if (!placesService.current) return;
+
+    setLoading(true);
+    placesService.current.textSearch(request, (results, status) => {
+      setLoading(false);
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+        createMarkers(results);
+      } else {
+        console.warn('Places search failed with status:', status);
+      }
+    });
+  }, [createMarkers]);
+
+  const initMap = useCallback((google: typeof window.google) => {
     if (!mapRef.current || !searchInputRef.current) return;
 
     mapInstance.current = new google.maps.Map(mapRef.current, {
@@ -134,7 +149,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
 
         if (place.name) {
           updateSearchHistory(place.name);
-          // Search for similar places in the area
           performSearch({
             location: place.geometry.location,
             radius: 2000,
@@ -144,7 +158,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
       }
     });
 
-    // Set up click handler for info window buttons
     infoWindow.current.addListener('domready', () => {
       const startAuditButtons = document.querySelectorAll('.btn-start-audit');
       startAuditButtons.forEach((button) => {
@@ -156,9 +169,7 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
         });
       });
     });
-
-    setLoading(false);
-  };
+  }, [onStartAudit, performSearch, updateSearchHistory]);
 
   useEffect(() => {
     try {
@@ -181,7 +192,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     loader
       .load()
       .then((google) => {
-        setIsApiReady(true);
         initMap(google);
       })
       .catch((e) => {
@@ -195,24 +205,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
       });
   }, [initMap]);
 
-  const updateSearchHistory = (query: string) => {
-    if (!query || !query.trim()) return;
-    const trimmedQuery = query.trim();
-
-    const newHistory = [
-      trimmedQuery,
-      ...searchHistory.filter((item) => item.toLowerCase() !== trimmedQuery.toLowerCase()),
-    ].slice(0, MAX_HISTORY_ITEMS);
-
-    setSearchHistory(newHistory);
-
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
-    } catch (e) {
-      console.error('Failed to save search history to localStorage', e);
-    }
-  };
-
   const handleSearchFocus = () => {
     if (searchHistory.length > 0) {
       setHistoryVisible(true);
@@ -220,7 +212,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
   };
 
   const handleSearchBlur = () => {
-    // Small delay to allow history clicks to register
     setTimeout(() => setHistoryVisible(false), 150);
   };
 
@@ -231,66 +222,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     }
   };
 
-  const createMarkers = (places: google.maps.places.PlaceResult[]) => {
-    markers.current.forEach((marker) => marker.setMap(null));
-    markers.current = [];
-
-    const bounds = new google.maps.LatLngBounds();
-
-    places.forEach((place) => {
-      if (!place.geometry || !place.geometry.location || !place.name) return;
-
-      const marker = new google.maps.Marker({
-        map: mapInstance.current,
-        position: place.geometry.location,
-        title: place.name,
-        animation: google.maps.Animation.DROP,
-        icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-      });
-
-      marker.addListener('click', () => {
-        if (!infoWindow.current) return;
-
-        const website = place.website ?? '';
-        const encodedName = encodeURIComponent(place.name!);
-        const encodedWebsite = encodeURIComponent(website);
-
-        const content = `
-                    <div class="map-infowindow-content">
-                        <h4>${place.name}</h4>
-                        <p>${place.formatted_address || ''}</p>
-                        <div class="map-infowindow-buttons" style="margin-top: 1rem;">
-                            <button class="btn btn-primary btn-start-audit" data-name="${encodedName}" data-website="${encodedWebsite}">Start an audit</button>
-                        </div>
-                    </div>
-                `;
-        infoWindow.current.setContent(content);
-        infoWindow.current.open(mapInstance.current, marker);
-      });
-
-      markers.current.push(marker);
-      bounds.extend(place.geometry.location);
-    });
-
-    if (mapInstance.current && markers.current.length > 0) {
-      mapInstance.current.fitBounds(bounds);
-    }
-  };
-
-  const performSearch = (request: google.maps.places.TextSearchRequest) => {
-    if (!placesService.current) return;
-
-    setLoading(true);
-    placesService.current.textSearch(request, (results, status) => {
-      setLoading(false);
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        createMarkers(results);
-      } else {
-        console.warn('Places search failed with status:', status);
-      }
-    });
-  };
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = searchInputRef.current?.value?.trim();
@@ -299,8 +230,7 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
     updateSearchHistory(query);
     setHistoryVisible(false);
 
-    // Get current map center or use default
-    const center = mapInstance.current?.getCenter() || new google.maps.LatLng(34.0522, -118.2437);
+    const center = mapInstance.current?.getCenter() || new window.google.maps.LatLng(34.0522, -118.2437);
 
     performSearch({
       location: center,
@@ -336,7 +266,6 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
               <div
                 key={index}
                 className="map-search-history-item"
-                // Use onMouseDown to trigger before the input's onBlur
                 onMouseDown={() => handleHistoryClick(item)}
               >
                 {item}
