@@ -13,7 +13,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@googlemaps/js-api-loader": "^1.16.6",
+    "@googlemaps/js-api-loader": "^1.16.10",
     "express": "^4.19.2",
     "firebase": "10.12.2",
     "react": "^19.1.1",

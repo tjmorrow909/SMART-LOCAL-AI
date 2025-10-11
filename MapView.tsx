@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, type FC, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
+import { mapStyles } from './src/mapStyles';
 
 // --- Component Props ---
 interface MapViewProps {
@@ -127,6 +128,7 @@ export const MapView: FC<MapViewProps> = ({ onStartAudit }) => {
       center: { lat: 34.0522, lng: -118.2437 }, // Default to Los Angeles
       zoom: 12,
       mapId: 'SMART_LOCAL_AI_MAP',
+      styles: mapStyles,
     });
     placesService.current = new google.maps.places.PlacesService(mapInstance.current);
     infoWindow.current = new google.maps.InfoWindow();
