@@ -23,7 +23,7 @@ export const ClientSetupView: FC<ClientSetupViewProps> = ({ onCreateProfile }) =
       setName('');
       setWebsite('');
       setNotes('');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to save profile:', error);
       alert('Failed to save profile. Please try again.');
     } finally {

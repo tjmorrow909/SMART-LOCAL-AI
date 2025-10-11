@@ -19,21 +19,18 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+// --- Critical Configuration Check ---
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+  throw new Error(
+    'Firebase configuration is incomplete. Please make sure all required environment variables (VITE_FIREBASE_*) are set in your .env file.'
+  );
+}
+
 // --- Initialization ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
-
-// --- Error Handling ---
-let firebaseError: string | null = null;
-if (!firebaseConfig.apiKey) {
-  firebaseError =
-    'Firebase API Key is not configured. Please set VITE_FIREBASE_API_KEY in your environment.';
-} else if (!firebaseConfig.projectId) {
-  firebaseError =
-    'Firebase Project ID is not configured. Please set VITE_FIREBASE_PROJECT_ID in your environment.';
-}
 
 // --- Authentication Functions ---
 const provider = new GoogleAuthProvider();
@@ -56,4 +53,4 @@ const signOut = async () => {
 export type User = import('firebase/auth').User;
 
 // --- Exports ---
-export { auth, db, functions, signInWithGoogle, signOut, firebaseError };
+export { auth, db, functions, signInWithGoogle, signOut };
