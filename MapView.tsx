@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useRef, type FC, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 
-declare global {
-  interface Window {
-    google: typeof import('google.maps');
-  }
-}
-
 // --- Component Props ---
 interface MapViewProps {
   onStartAudit: (business: { name: string; website?: string }) => void;
