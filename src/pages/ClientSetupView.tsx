@@ -3,7 +3,7 @@
 import React, { useState, type FC } from 'react';
 
 interface ClientSetupViewProps {
-  onCreateProfile: (data: { name: string; website?: string; notes?: string }) => Promise<void>;
+  onCreateProfile: (profileData: { name: string; website?: string; notes?: string }) => Promise<void>;
 }
 
 export const ClientSetupView: FC<ClientSetupViewProps> = ({ onCreateProfile }) => {
@@ -36,7 +36,7 @@ export const ClientSetupView: FC<ClientSetupViewProps> = ({ onCreateProfile }) =
       <div className="client-setup-header">
         <h2>Client Onboarding</h2>
         <p>
-          Enter your new client's information. This will create a profile to track audits and
+          Enter your new client&apos;s information. This will create a profile to track audits and
           AI-generated content.
         </p>
       </div>

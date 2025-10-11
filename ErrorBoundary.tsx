@@ -45,7 +45,7 @@ const DefaultErrorFallback: React.FC<{ error?: Error; resetError: () => void }> 
   <div className="error-boundary">
     <div className="error-content">
       <h2>Something went wrong</h2>
-      <p>We're sorry, but something unexpected happened.</p>
+      <p>We&apos;re sorry, but something unexpected happened.</p>
       {error && (
         <details style={{ marginTop: '1rem' }}>
           <summary>Error details</summary>

@@ -26,9 +26,13 @@ export const LoginView: FC<LoginViewProps> = ({ onSignIn }) => {
           setSigningIn(false);
         }
       }, 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Sign-in failed:', error);
-      setSignInError(error.message || 'Sign-in failed. Please try again.');
+      if (error instanceof Error) {
+        setSignInError(error.message || 'Sign-in failed. Please try again.');
+      } else {
+        setSignInError('An unknown error occurred during sign-in.');
+      }
       setSigningIn(false);
     }
   };

@@ -1,7 +1,7 @@
 // src/hooks/useAI.ts
 
 import { useState } from 'react';
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
 
 let geminiProxy: any = null;
@@ -30,10 +30,15 @@ export const useAI = () => {
         },
       });
       return result.data.text;
-    } catch (e: any) {
-      const errorMessage = e.message || 'An unknown error occurred.';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+    } catch (e: unknown) {
+        if (e instanceof Error) {
+            const errorMessage = e.message || 'An unknown error occurred.';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        } else {
+            setError('An unknown error occurred.');
+            throw new Error('An unknown error occurred.');
+        }
     } finally {
       setLoading(false);
     }

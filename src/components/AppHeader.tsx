@@ -26,17 +26,17 @@ export const AppHeader: FC<AppHeaderProps> = ({ user, currentView, setView, onSi
         <div className="text-logo-header">SMARTLOCAL.AI</div>
       </div>
       <nav className="app-nav">
-        {views.map((view) => {
+        {views.map((viewItem) => {
           const isActive =
-            currentView === view.id || (currentView === 'PROFILE_DETAIL' && view.id === 'PROFILES');
+            currentView === viewItem.id || (currentView === 'PROFILE_DETAIL' && viewItem.id === 'PROFILES');
           return (
             <button
-              key={view.id}
+              key={viewItem.id}
               className={`nav-button ${isActive ? 'active' : ''}`}
-              onClick={() => setView(view.id)}
+              onClick={() => setView(viewItem.id)}
               aria-current={isActive ? 'page' : undefined}
             >
-              {view.label}
+              {viewItem.label}
             </button>
           );
         })}

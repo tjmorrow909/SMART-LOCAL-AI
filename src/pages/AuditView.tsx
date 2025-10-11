@@ -36,7 +36,7 @@ export const AuditView: FC<AuditViewProps> = ({ business, onSaveAudit }) => {
     try {
       const result = await generateContent(prompt);
       setReport(result);
-    } catch (err) {
+    } catch (e) {
       // Error is handled by useAI hook
     }
   };
@@ -48,8 +48,8 @@ export const AuditView: FC<AuditViewProps> = ({ business, onSaveAudit }) => {
     try {
       await onSaveAudit(report, business.id);
       setSaveSuccess(true);
-    } catch (err) {
-      console.error('Failed to save audit report:', err);
+    } catch (e) {
+      console.error('Failed to save audit report:', e);
       alert('Failed to save the report. Please try again.');
     } finally {
       setIsSaving(false);
@@ -65,7 +65,7 @@ export const AuditView: FC<AuditViewProps> = ({ business, onSaveAudit }) => {
           <input
             type="text"
             id="business-name"
-            placeholder="e.g., Joe's Pizza Downtown"
+            placeholder="e.g., Joe&apos;s Pizza Downtown"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
           />
@@ -114,8 +114,8 @@ export const AuditView: FC<AuditViewProps> = ({ business, onSaveAudit }) => {
           ) : (
             <div className="audit-actions-note">
               <p>
-                To save this report, first create a client profile from the 'Client Setup' tab and
-                run the audit from the 'Profiles' view.
+                To save this report, first create a client profile from the &apos;Client Setup&apos; tab and
+                run the audit from the &apos;Profiles&apos; view.
               </p>
             </div>
           )}
