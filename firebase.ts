@@ -9,16 +9,16 @@ export type User = firebase.User;
 
 // --- Configuration ---
 // Vite exposes env variables on `import.meta.env`.
-// These variables should be set in a `.env.local` file at the root of the project.
+// These variables should be set in a `.env` file at the root of the project.
 // Example: VITE_FIREBASE_API_KEY="AIza..."
 const firebaseConfig = {
-  apiKey: "AIzaSyAQKbUQdmZFfWrD92-SMxthZtgN6Jxuoxg",
-  authDomain: "smartlocalai-469603.firebaseapp.com",
-  projectId: "smartlocalai-469603",
-  storageBucket: "smartlocalai-469603.firebasestorage.app",
-  messagingSenderId: "206325636938",
-  appId: "1:206325636938:web:16040b951bdfb691fbabb3",
-  measurementId: "G-KZHGGD9JVP"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // --- Initialization ---
@@ -29,10 +29,10 @@ let functions: firebase.functions.Functions | null = null;
 let firebaseError: string | null = null;
 
 // Validate configuration
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("xxxxxxxxxx")) {
-    firebaseError = "Firebase API Key is not configured correctly. Please set VITE_FIREBASE_API_KEY in your environment.";
+if (!firebaseConfig.apiKey) {
+    firebaseError = "Firebase API Key is not configured. Please set VITE_FIREBASE_API_KEY in your .env file.";
 } else if (!firebaseConfig.projectId) {
-    firebaseError = "Firebase Project ID is not configured. Please set VITE_FIREBASE_PROJECT_ID in your environment.";
+    firebaseError = "Firebase Project ID is not configured. Please set VITE_FIREBASE_PROJECT_ID in your .env file.";
 }
 
 if (!firebaseError) {
