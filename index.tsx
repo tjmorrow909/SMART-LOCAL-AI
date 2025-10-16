@@ -1,4 +1,4 @@
-
+firebase 
 
 import React, { useState, useEffect, type FC, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
