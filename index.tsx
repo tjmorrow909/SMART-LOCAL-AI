@@ -648,10 +648,12 @@ const App: FC = () => {
 
     useEffect(() => {
         if (!auth) {
+            console.error('Firebase Auth is not initialized.');
             setLoading(false);
             return;
         }
         const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+            console.log('onAuthStateChanged fired. User:', currentUser);
             setUser(currentUser);
             fetchProfiles(currentUser);
             setLoading(false);
@@ -721,6 +723,7 @@ const App: FC = () => {
             <div style={{ padding: '2rem', color: '#dc3545', textAlign: 'center' }}>
                 <h2>Configuration Error</h2>
                 <p>{firebaseError}</p>
+                <p>Please check your Firebase configuration and environment variables.</p>
             </div>
         );
     }
